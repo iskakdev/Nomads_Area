@@ -658,18 +658,9 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         self.is_duplicate = False
 
         if tour.tour_type == "group":
-            locked_date = TourDate.objects.select_for_update().get(pk=validated_data["tour_date"].pk, tour=tour)
-
-            if number_of_people > locked_date.available_spots:
-                raise serializers.ValidationError({"adults": f"Недостаточно мест. Осталось: {locked_date.available_spots}."})
-
             price_per_person = tour.price
             total_price = tour.price * number_of_people
-
-            locked_date.available_spots -= number_of_people
-            locked_date.save(update_fields=["available_spots"])
-
-            saved_tour_date = locked_date
+            saved_tour_date = validated_data["tour_date"]
             saved_start_date = None
             saved_end_date = None
 
@@ -712,8 +703,8 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "provider", "amount", "currency", "payment_url", "status", "created_at"]
 
     def validate_booking(self, booking):
-        if booking.status == "cancelled":
-            raise serializers.ValidationError("Нельзя создать оплату для отменённого бронирования.")
+        if booking.status in ["cancelled", "rejected"]:
+            raise serializers.ValidationError("Нельзя создать оплату для отменённого или отклонённого бронирования.")
 
         if hasattr(booking, "payment"):
             raise serializers.ValidationError("Оплата для этого бронирования уже создана.")

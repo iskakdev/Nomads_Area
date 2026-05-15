@@ -1,4 +1,5 @@
 import json
+
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
@@ -96,7 +97,7 @@ class SiteSettingsAdmin(TranslationMediaMixin, TranslationAdmin):
         ("Социальные сети", {"fields": ("instagram_url", "facebook_url", "youtube_url", "tiktok_url", "tripadvisor_url")}),
         ("О компании", {"fields": ("about_text", "about_video_url")}),
         ("Цифры на сайте", {"fields": ("years_experience", "tourists_count", "routes_count")}),
-        ("Документы", {"fields": ("privacy_policy_url",)})
+        ("Документы", {"fields": ("privacy_policy_url",)}),
     )
 
     def has_add_permission(self, request):
@@ -109,7 +110,7 @@ class CountryAdmin(TranslationMediaMixin, TranslationAdmin):
     search_fields = ["country_name"]
     fieldsets = (
         ("Основная информация", {"fields": ("country_name", "hero_description")}),
-        ("Изображения", {"fields": ("country_image", "symbol_image")})
+        ("Изображения", {"fields": ("country_image", "symbol_image")}),
     )
 
 
@@ -121,7 +122,7 @@ class CityAdmin(TranslationMediaMixin, TranslationAdmin):
     search_fields = ["city_name", "country__country_name"]
     fieldsets = (
         ("Основная информация", {"fields": ("country", "city_name")}),
-        ("Изображение", {"fields": ("city_image",)})
+        ("Изображение", {"fields": ("city_image",)}),
     )
 
 
@@ -150,7 +151,7 @@ class TourAdmin(TranslationMediaMixin, TranslationAdmin):
         ("Цена", {"fields": ("price", "currency")}),
         ("Описание", {"fields": ("description", "included", "not_included", "activity_tags")}),
         ("Ссылки", {"fields": ("tripadvisor_url",)}),
-        ("Служебная информация", {"fields": ("created_at",)})
+        ("Служебная информация", {"fields": ("created_at",)}),
     )
 
 
@@ -168,24 +169,30 @@ class BookingAdmin(admin.ModelAdmin):
         ("Количество людей", {"fields": ("adults", "children", "number_of_people")}),
         ("Стоимость", {"fields": ("price_per_person", "total_price")}),
         ("Статус", {"fields": ("status",)}),
-        ("Служебная информация", {"fields": ("created_at",)})
+        ("Служебная информация", {"fields": ("created_at",)}),
     )
 
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ["booking", "provider", "amount", "currency", "status", "created_at", "paid_at"]
-    list_editable = ["status"]
     list_filter = ["provider", "status", "currency", "created_at"]
-    list_select_related = ["booking", "booking__tour"]
+    list_select_related = ["booking", "booking__tour", "booking__tour_date"]
     search_fields = ["booking__customer_name", "booking__customer_contact", "external_payment_id"]
     readonly_fields = ["booking", "provider", "amount", "currency", "external_payment_id", "payment_url", "created_at", "paid_at"]
     fieldsets = (
         ("Бронирование", {"fields": ("booking",)}),
         ("Платёж", {"fields": ("provider", "amount", "currency", "status")}),
         ("FinikPay", {"fields": ("external_payment_id", "payment_url")}),
-        ("Даты", {"fields": ("created_at", "paid_at")})
+        ("Даты", {"fields": ("created_at", "paid_at")}),
     )
+
+    def save_model(self, request, obj, form, change):
+        if change and "status" in form.changed_data and obj.status == "paid":
+            obj.confirm_and_reserve()
+            return
+
+        super().save_model(request, obj, form, change)
 
 
 @admin.register(Attraction)
@@ -199,7 +206,7 @@ class AttractionAdmin(TranslationMediaMixin, TranslationAdmin):
     fieldsets = (
         ("Основная информация", {"fields": ("city", "name", "description", "is_active")}),
         ("Связанные туры", {"fields": ("tours",)}),
-        ("Главное изображение", {"fields": ("image",)})
+        ("Главное изображение", {"fields": ("image",)}),
     )
 
 
@@ -237,7 +244,7 @@ class TeamMemberAdmin(TranslationMediaMixin, TranslationAdmin):
     search_fields = ["full_name", "position"]
     fieldsets = (
         ("Основная информация", {"fields": ("full_name", "position", "description")}),
-        ("Фото и порядок", {"fields": ("photo", "order", "is_active")})
+        ("Фото и порядок", {"fields": ("photo", "order", "is_active")}),
     )
 
 

@@ -1,7 +1,8 @@
 from django.core.exceptions import ValidationError
 from django.core.validators import MaxLengthValidator, MaxValueValidator, MinValueValidator
-from django.db import models
+from django.db import models, transaction
 from django.db.models import F, Q
+from django.utils import timezone
 from phonenumber_field.modelfields import PhoneNumberField
 
 
@@ -364,6 +365,7 @@ class Payment(models.Model):
         ("paid", "Оплачен"),
         ("failed", "Ошибка оплаты"),
         ("cancelled", "Отменён"),
+        ("refunded", "Возврат"),
     )
 
     PROVIDER_CHOICES = (
@@ -388,6 +390,54 @@ class Payment(models.Model):
             models.Index(fields=["status", "created_at"], name="payment_status_created_idx"),
             models.Index(fields=["external_payment_id"], name="payment_external_id_idx"),
         ]
+
+    def confirm_and_reserve(self):
+        with transaction.atomic():
+            payment = (
+                Payment.objects
+                .select_for_update()
+                .select_related("booking", "booking__tour", "booking__tour_date")
+                .get(pk=self.pk)
+            )
+            booking = payment.booking
+            tour = booking.tour
+
+            if payment.status == "paid":
+                return payment
+
+            if booking.status in ["cancelled", "rejected"]:
+                payment.status = "cancelled"
+                payment.save(update_fields=["status"])
+                return payment
+
+            if tour.tour_type == "group":
+                if not booking.tour_date_id:
+                    payment.status = "failed"
+                    payment.save(update_fields=["status"])
+                    booking.status = "rejected"
+                    booking.save(update_fields=["status"])
+                    return payment
+
+                tour_date = TourDate.objects.select_for_update().get(pk=booking.tour_date_id)
+
+                if booking.number_of_people > tour_date.available_spots:
+                    payment.status = "refunded"
+                    payment.save(update_fields=["status"])
+                    booking.status = "rejected"
+                    booking.save(update_fields=["status"])
+                    return payment
+
+                tour_date.available_spots -= booking.number_of_people
+                tour_date.save(update_fields=["available_spots"])
+
+            booking.status = "confirmed"
+            booking.save(update_fields=["status"])
+
+            payment.status = "paid"
+            payment.paid_at = timezone.now()
+            payment.save(update_fields=["status", "paid_at"])
+
+            return payment
 
     def __str__(self):
         return f"{self.booking_id} - {self.amount} {self.currency} - {self.status}"
