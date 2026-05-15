@@ -1,35 +1,29 @@
 import logging
-
 from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-
 from .filters import TourFilter
 from .models import (Attraction, City, Country, QuizProgress, QuizQuestion,
                      SiteSettings, TeamMember, Tour, TourCategory, TourDate,
-                     TransferRoute, TransportRequest, Payment)
+                     TransferRoute, TransportRequest)
 from .notifications import (send_booking_notification, send_contact_notification,
                              send_quiz_notification, send_transport_notification)
 from .serializers import (AttractionDetailSerializer, AttractionListSerializer,
                           BookingCreateSerializer, CityDetailSerializer, CityListSerializer,
                           ContactRequestSerializer, CountryDetailSerializer, CountryListSerializer,
-                          QuizLeadSerializer, QuizProgressSerializer, QuizProgressUpdateSerializer,
-                          QuizQuestionSerializer, SiteSettingsSerializer, TeamMemberSerializer,
-                          TourCategoryDetailSerializer, TourCategoryListSerializer,
+                          PaymentCreateSerializer, QuizLeadSerializer, QuizProgressSerializer,
+                          QuizProgressUpdateSerializer, QuizQuestionSerializer, SiteSettingsSerializer,
+                          TeamMemberSerializer, TourCategoryDetailSerializer, TourCategoryListSerializer,
                           TourDateUpcomingSerializer, TourDetailSerializer, TourListSerializer,
-                          TransferRouteSerializer, TransportRequestCreateSerializer, PaymentCreateSerializer)
+                          TransferRouteSerializer, TransportRequestCreateSerializer)
 from .throttles import FormSubmitThrottle
 
 
 logger = logging.getLogger(__name__)
 
-
-# ========================
-# SITE SETTINGS
-# ========================
 
 class SiteSettingsView(generics.RetrieveAPIView):
     serializer_class = SiteSettingsSerializer
@@ -44,10 +38,6 @@ class TeamMemberListView(generics.ListAPIView):
     permission_classes = [AllowAny]
     queryset = TeamMember.objects.filter(is_active=True).order_by("order", "id")
 
-
-# ========================
-# СПРАВОЧНИКИ
-# ========================
 
 class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
@@ -106,10 +96,6 @@ class TourCategoryViewSet(viewsets.ReadOnlyModelViewSet):
         return TourCategoryListSerializer
 
 
-# ========================
-# TOURS
-# ========================
-
 class TourViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, SearchFilter, OrderingFilter]
@@ -125,12 +111,14 @@ class TourViewSet(viewsets.ReadOnlyModelViewSet):
             .select_related("country", "city")
             .order_by("-created_at")
         )
+
         if self.action == "retrieve":
             return base.prefetch_related(
                 "categories", "images", "itinerary", "dates",
                 "attractions__city__country", "price_tiers",
-                "extra_services", "faqs", "route_points"
+                "extra_services", "faqs", "route_points",
             )
+
         return base.prefetch_related("images", "dates", "attractions__city__country")
 
     def get_serializer_class(self):
@@ -151,17 +139,13 @@ class TourDateUpcomingView(generics.ListAPIView):
                 tour__is_active=True,
                 tour__tour_type="group",
                 start_date__gte=today,
-                available_spots__gte=1
+                available_spots__gte=1,
             )
             .select_related("tour", "tour__country")
             .prefetch_related("tour__images")
             .order_by("start_date")
         )
 
-
-# ========================
-# BOOKING
-# ========================
 
 class BookingCreateView(generics.CreateAPIView):
     serializer_class = BookingCreateSerializer
@@ -170,21 +154,21 @@ class BookingCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         booking = serializer.save()
+
         if getattr(serializer, "is_duplicate", False):
             return
+
         try:
             send_booking_notification(booking)
         except Exception as e:
             logger.exception("Не удалось отправить уведомление о бронировании: %s", e)
+
 
 class PaymentCreateView(generics.CreateAPIView):
     serializer_class = PaymentCreateSerializer
     permission_classes = [AllowAny]
     throttle_classes = [FormSubmitThrottle]
 
-# ========================
-# QUIZ
-# ========================
 
 class QuizQuestionListView(generics.ListAPIView):
     serializer_class = QuizQuestionSerializer
@@ -204,15 +188,18 @@ class QuizLeadCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         quiz_lead = serializer.save()
+
         if getattr(serializer, "is_duplicate", False):
             return
+
         try:
             session_key = self.request.session.session_key
             if session_key:
                 QuizProgress.objects.filter(
                     session_key=session_key,
-                    is_completed=False
+                    is_completed=False,
                 ).update(is_completed=True)
+
             send_quiz_notification(quiz_lead)
         except Exception as e:
             logger.exception("Ошибка пост-обработки quiz lead: %s", e)
@@ -225,10 +212,11 @@ class QuizProgressView(generics.RetrieveAPIView):
     def get_object(self):
         if not self.request.session.session_key:
             self.request.session.create()
+
         progress, _ = QuizProgress.objects.get_or_create(
             session_key=self.request.session.session_key,
             is_completed=False,
-            defaults={"answers": {}, "current_question_index": 0}
+            defaults={"answers": {}, "current_question_index": 0},
         )
         return progress
 
@@ -240,10 +228,11 @@ class QuizProgressUpdateView(generics.UpdateAPIView):
     def get_object(self):
         if not self.request.session.session_key:
             self.request.session.create()
+
         progress, _ = QuizProgress.objects.get_or_create(
             session_key=self.request.session.session_key,
             is_completed=False,
-            defaults={"answers": {}, "current_question_index": 0}
+            defaults={"answers": {}, "current_question_index": 0},
         )
         return progress
 
@@ -254,10 +243,6 @@ class QuizProgressUpdateView(generics.UpdateAPIView):
         serializer.save()
         return Response(QuizProgressSerializer(progress).data, status=status.HTTP_200_OK)
 
-
-# ========================
-# ATTRACTIONS
-# ========================
 
 class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
@@ -272,9 +257,10 @@ class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
             .select_related("city", "city__country")
             .order_by("name")
         )
+
         if self.action == "retrieve":
-            # tours__images — для TourShortSerializer.get_cover_image без N+1
             return base.prefetch_related("images", "tours__images")
+
         return base
 
     def get_serializer_class(self):
@@ -282,10 +268,6 @@ class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
             return AttractionDetailSerializer
         return AttractionListSerializer
 
-
-# ========================
-# TRANSFER
-# ========================
 
 class TransferRouteViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = (
@@ -304,10 +286,11 @@ class TransportRequestCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         transport_request = serializer.save()
+
         if getattr(serializer, "is_duplicate", False):
             return
+
         try:
-            # select_related чтобы избежать лишних запросов в send_transport_notification
             transport_request = (
                 TransportRequest.objects
                 .select_related("vehicle__route")
@@ -318,10 +301,6 @@ class TransportRequestCreateView(generics.CreateAPIView):
             logger.exception("Не удалось отправить уведомление о трансфере: %s", e)
 
 
-# ========================
-# CONTACT
-# ========================
-
 class ContactRequestCreateView(generics.CreateAPIView):
     serializer_class = ContactRequestSerializer
     permission_classes = [AllowAny]
@@ -329,8 +308,10 @@ class ContactRequestCreateView(generics.CreateAPIView):
 
     def perform_create(self, serializer):
         contact_request = serializer.save()
+
         if getattr(serializer, "is_duplicate", False):
             return
+
         try:
             send_contact_notification(contact_request)
         except Exception as e:

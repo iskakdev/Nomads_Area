@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -12,10 +13,6 @@ from .models import (FAQ, Attraction, AttractionImage, Booking, Payment, City, C
                      TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint,
                      TransferRoute, TransportRequest, VehicleType)
 
-
-# ========================
-# LANGUAGE HELPERS
-# ========================
 
 def is_english():
     language = get_language() or "ru"
@@ -106,29 +103,17 @@ def get_price_display_value(tour):
     return f"от {tour.price} {tour.currency} за тур"
 
 
-# ========================
-# SITE SETTINGS
-# ========================
-
 class SiteSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteSettings
         fields = "__all__"
 
 
-# ========================
-# TEAM
-# ========================
-
 class TeamMemberSerializer(serializers.ModelSerializer):
     class Meta:
         model = TeamMember
         fields = ["id", "full_name", "position", "description", "photo", "order"]
 
-
-# ========================
-# TOUR NESTED SERIALIZERS
-# ========================
 
 class TourImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -173,10 +158,6 @@ class TourRoutePointSerializer(serializers.ModelSerializer):
         fields = ["id", "title", "latitude", "longitude", "order"]
 
 
-# ========================
-# SCHEMA SERIALIZERS
-# ========================
-
 class NearestDateSchemaSerializer(serializers.Serializer):
     id = serializers.IntegerField()
     start_date = serializers.CharField()
@@ -196,10 +177,6 @@ class AvailableDateSchemaSerializer(serializers.Serializer):
     price = serializers.IntegerField()
     currency = serializers.CharField()
 
-
-# ========================
-# ATTRACTIONS
-# ========================
 
 class AttractionImageSerializer(serializers.ModelSerializer):
     class Meta:
@@ -276,10 +253,6 @@ class AttractionDetailSerializer(serializers.ModelSerializer):
         return TourShortSerializer(tours, many=True).data
 
 
-# ========================
-# COUNTRY
-# ========================
-
 class CountryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Country
@@ -317,10 +290,6 @@ class CountryDetailSerializer(serializers.ModelSerializer):
         return AttractionListSerializer(attractions, many=True).data
 
 
-# ========================
-# CITY
-# ========================
-
 class CityListSerializer(serializers.ModelSerializer):
     country_name = serializers.CharField(source="country.country_name", read_only=True)
 
@@ -348,10 +317,6 @@ class CityDetailSerializer(serializers.ModelSerializer):
         return AttractionListSerializer(attractions, many=True).data
 
 
-# ========================
-# CATEGORY
-# ========================
-
 class TourCategoryListSerializer(serializers.ModelSerializer):
     class Meta:
         model = TourCategory
@@ -369,10 +334,6 @@ class TourCategoryDetailSerializer(serializers.ModelSerializer):
     def get_tours(self, category):
         return TourShortSerializer(category.tours.filter(is_active=True), many=True).data
 
-
-# ========================
-# TOUR LIST
-# ========================
 
 class TourListSerializer(serializers.ModelSerializer):
     country_name = serializers.CharField(source="country.country_name", read_only=True)
@@ -461,10 +422,6 @@ class TourListSerializer(serializers.ModelSerializer):
     def get_difficulty_display(self, tour):
         return get_difficulty_display_value(tour.difficulty)
 
-
-# ========================
-# TOUR DETAIL
-# ========================
 
 class TourDetailSerializer(serializers.ModelSerializer):
     country = CountryListSerializer(read_only=True)
@@ -559,10 +516,6 @@ class TourDetailSerializer(serializers.ModelSerializer):
         return AttractionListSerializer(tour.attractions.all(), many=True).data
 
 
-# ========================
-# TOUR DATE UPCOMING
-# ========================
-
 class TourDateUpcomingSerializer(serializers.ModelSerializer):
     tour_title = serializers.CharField(source="tour.title", read_only=True)
     country_name = serializers.CharField(source="tour.country.country_name", read_only=True)
@@ -607,10 +560,6 @@ class TourDateUpcomingSerializer(serializers.ModelSerializer):
     def get_season_display(self, tour_date):
         return get_season_display_value(tour_date.tour.season)
 
-
-# ========================
-# BOOKING
-# ========================
 
 class BookingCreateSerializer(serializers.ModelSerializer):
     PRIVATE_MAX_PEOPLE = 999
@@ -756,21 +705,6 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         )
 
 
-class BookingStatusSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Booking
-        fields = ["id", "status"]
-
-
-class PaymentSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Payment
-        fields = ["id", "booking", "provider", "amount", "currency", "external_payment_id",
-                  "payment_url", "status", "created_at", "paid_at"]
-        read_only_fields = ["provider", "amount", "currency", "external_payment_id",
-                            "payment_url", "status", "created_at", "paid_at"]
-
-
 class PaymentCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Payment
@@ -796,9 +730,6 @@ class PaymentCreateSerializer(serializers.ModelSerializer):
             status="pending",
         )
 
-# ========================
-# QUIZ
-# ========================
 
 class QuizAnswerOptionSerializer(serializers.ModelSerializer):
     class Meta:
@@ -857,10 +788,6 @@ class QuizProgressUpdateSerializer(serializers.ModelSerializer):
         model = QuizProgress
         fields = ["answers", "current_question_index"]
 
-
-# ========================
-# TRANSFER
-# ========================
 
 class VehicleTypeSerializer(serializers.ModelSerializer):
     category_display = serializers.SerializerMethodField()
@@ -932,16 +859,6 @@ class TransportRequestCreateSerializer(serializers.ModelSerializer):
 
         return TransportRequest.objects.create(total_price=vehicle.price, status="pending", **validated_data)
 
-
-class TransportRequestStatusSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = TransportRequest
-        fields = ["id", "status"]
-
-
-# ========================
-# CONTACT
-# ========================
 
 class ContactRequestSerializer(serializers.ModelSerializer):
     class Meta:

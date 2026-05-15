@@ -1,15 +1,14 @@
 import json
-
 from django.contrib import admin
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
 from modeltranslation.admin import TranslationAdmin
 
-from .models import (
-    FAQ, Payment, Attraction, AttractionImage, Booking, City, ContactRequest, Country, ExtraService, ItineraryDay,
-    QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory, TourDate,
-    TourImage, TourPriceTier, TourRoutePoint, TransferRoute, TransportRequest, VehicleType,
-)
+from .models import (FAQ, Payment, Attraction, AttractionImage, Booking, City, ContactRequest, Country,
+                     ExtraService, ItineraryDay, QuizAnswerOption, QuizLead, QuizProgress,
+                     QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory, TourDate,
+                     TourImage, TourPriceTier, TourRoutePoint, TransferRoute, TransportRequest,
+                     VehicleType)
 
 
 admin.site.site_header = "Nomads Area Admin"
@@ -20,8 +19,8 @@ admin.site.index_title = "Панель управления"
 class TranslationMediaMixin:
     class Media:
         js = (
-            "http://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js",
-            "http://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jquery/1.9.1/jquery.min.js",
+            "https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.2/jquery-ui.min.js",
             "modeltranslation/js/tabbed_translation_fields.js",
         )
         css = {
@@ -32,36 +31,26 @@ class TranslationMediaMixin:
 class TourImageInline(admin.TabularInline):
     model = TourImage
     extra = 1
-    verbose_name = "Фото тура"
-    verbose_name_plural = "Фото тура"
 
 
 class ItineraryDayInline(admin.StackedInline):
     model = ItineraryDay
     extra = 1
-    verbose_name = "День маршрута"
-    verbose_name_plural = "Маршрут по дням"
 
 
 class TourDateInline(admin.TabularInline):
     model = TourDate
     extra = 1
-    verbose_name = "Дата заезда"
-    verbose_name_plural = "Даты заезда"
 
 
 class TourPriceTierInline(admin.TabularInline):
     model = TourPriceTier
     extra = 1
-    verbose_name = "Цена для приватного тура"
-    verbose_name_plural = "Цены для приватного тура"
 
 
 class ExtraServiceInline(admin.StackedInline):
     model = ExtraService
     extra = 0
-    verbose_name = "Дополнительная услуга"
-    verbose_name_plural = "Дополнительные услуги"
 
 
 class FAQInlineFormSet(BaseInlineFormSet):
@@ -77,36 +66,26 @@ class FAQInline(admin.StackedInline):
     model = FAQ
     extra = 0
     formset = FAQInlineFormSet
-    verbose_name = "Вопрос-ответ"
-    verbose_name_plural = "FAQ"
 
 
 class TourRoutePointInline(admin.TabularInline):
     model = TourRoutePoint
     extra = 0
-    verbose_name = "Точка маршрута"
-    verbose_name_plural = "Точки маршрута"
 
 
 class AttractionImageInline(admin.TabularInline):
     model = AttractionImage
     extra = 1
-    verbose_name = "Фото достопримечательности"
-    verbose_name_plural = "Фото достопримечательности"
 
 
 class QuizAnswerOptionInline(admin.TabularInline):
     model = QuizAnswerOption
     extra = 3
-    verbose_name = "Вариант ответа"
-    verbose_name_plural = "Варианты ответа"
 
 
 class VehicleTypeInline(admin.TabularInline):
     model = VehicleType
     extra = 1
-    verbose_name = "Тип машины"
-    verbose_name_plural = "Типы машин"
 
 
 @admin.register(SiteSettings)
@@ -117,7 +96,7 @@ class SiteSettingsAdmin(TranslationMediaMixin, TranslationAdmin):
         ("Социальные сети", {"fields": ("instagram_url", "facebook_url", "youtube_url", "tiktok_url", "tripadvisor_url")}),
         ("О компании", {"fields": ("about_text", "about_video_url")}),
         ("Цифры на сайте", {"fields": ("years_experience", "tourists_count", "routes_count")}),
-        ("Документы", {"fields": ("privacy_policy_url",)}),
+        ("Документы", {"fields": ("privacy_policy_url",)})
     )
 
     def has_add_permission(self, request):
@@ -130,7 +109,7 @@ class CountryAdmin(TranslationMediaMixin, TranslationAdmin):
     search_fields = ["country_name"]
     fieldsets = (
         ("Основная информация", {"fields": ("country_name", "hero_description")}),
-        ("Изображения", {"fields": ("country_image", "symbol_image")}),
+        ("Изображения", {"fields": ("country_image", "symbol_image")})
     )
 
 
@@ -142,7 +121,7 @@ class CityAdmin(TranslationMediaMixin, TranslationAdmin):
     search_fields = ["city_name", "country__country_name"]
     fieldsets = (
         ("Основная информация", {"fields": ("country", "city_name")}),
-        ("Изображение", {"fields": ("city_image",)}),
+        ("Изображение", {"fields": ("city_image",)})
     )
 
 
@@ -171,7 +150,7 @@ class TourAdmin(TranslationMediaMixin, TranslationAdmin):
         ("Цена", {"fields": ("price", "currency")}),
         ("Описание", {"fields": ("description", "included", "not_included", "activity_tags")}),
         ("Ссылки", {"fields": ("tripadvisor_url",)}),
-        ("Служебная информация", {"fields": ("created_at",)}),
+        ("Служебная информация", {"fields": ("created_at",)})
     )
 
 
@@ -189,13 +168,14 @@ class BookingAdmin(admin.ModelAdmin):
         ("Количество людей", {"fields": ("adults", "children", "number_of_people")}),
         ("Стоимость", {"fields": ("price_per_person", "total_price")}),
         ("Статус", {"fields": ("status",)}),
-        ("Служебная информация", {"fields": ("created_at",)}),
+        ("Служебная информация", {"fields": ("created_at",)})
     )
 
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
     list_display = ["booking", "provider", "amount", "currency", "status", "created_at", "paid_at"]
+    list_editable = ["status"]
     list_filter = ["provider", "status", "currency", "created_at"]
     list_select_related = ["booking", "booking__tour"]
     search_fields = ["booking__customer_name", "booking__customer_contact", "external_payment_id"]
@@ -204,7 +184,7 @@ class PaymentAdmin(admin.ModelAdmin):
         ("Бронирование", {"fields": ("booking",)}),
         ("Платёж", {"fields": ("provider", "amount", "currency", "status")}),
         ("FinikPay", {"fields": ("external_payment_id", "payment_url")}),
-        ("Даты", {"fields": ("created_at", "paid_at")}),
+        ("Даты", {"fields": ("created_at", "paid_at")})
     )
 
 
@@ -219,7 +199,7 @@ class AttractionAdmin(TranslationMediaMixin, TranslationAdmin):
     fieldsets = (
         ("Основная информация", {"fields": ("city", "name", "description", "is_active")}),
         ("Связанные туры", {"fields": ("tours",)}),
-        ("Главное изображение", {"fields": ("image",)}),
+        ("Главное изображение", {"fields": ("image",)})
     )
 
 
@@ -257,7 +237,7 @@ class TeamMemberAdmin(TranslationMediaMixin, TranslationAdmin):
     search_fields = ["full_name", "position"]
     fieldsets = (
         ("Основная информация", {"fields": ("full_name", "position", "description")}),
-        ("Фото и порядок", {"fields": ("photo", "order", "is_active")}),
+        ("Фото и порядок", {"fields": ("photo", "order", "is_active")})
     )
 
 
