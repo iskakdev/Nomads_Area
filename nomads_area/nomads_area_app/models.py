@@ -321,9 +321,6 @@ class Booking(models.Model):
     number_of_people = models.PositiveSmallIntegerField()
     price_per_person = models.PositiveIntegerField()
     total_price = models.PositiveIntegerField()
-    remainder_amount = models.PositiveIntegerField(default=0)
-    deposit_percent = models.PositiveSmallIntegerField(default=30)
-    deposit_amount = models.PositiveIntegerField()
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending")
     created_at = models.DateTimeField(auto_now_add=True)
 

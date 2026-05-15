@@ -27,10 +27,7 @@ def send_booking_notification(booking):
     )
     if booking.people_details:
         telegram_text += f"<b>Состав:</b> {booking.people_details}\n"
-    telegram_text += (
-        f"\n<b>Стоимость:</b> {booking.total_price} {booking.tour.currency}\n"
-        f"<b>Предоплата 30%:</b> {booking.deposit_amount} {booking.tour.currency}\n"
-    )
+    telegram_text += f"\n<b>Стоимость:</b> {booking.total_price} {booking.tour.currency}\n"
     if booking.comment:
         telegram_text += f"\n<b>Комментарий:</b> {booking.comment}\n"
 
@@ -46,10 +43,7 @@ def send_booking_notification(booking):
     )
     if booking.people_details:
         email_body += f"Состав: {booking.people_details}\n"
-    email_body += (
-        f"\nСтоимость: {booking.total_price} {booking.tour.currency}\n"
-        f"Предоплата 30%: {booking.deposit_amount} {booking.tour.currency}\n"
-    )
+    email_body += f"\nСтоимость: {booking.total_price} {booking.tour.currency}\n"
     if booking.comment:
         email_body += f"\nКомментарий: {booking.comment}\n"
 

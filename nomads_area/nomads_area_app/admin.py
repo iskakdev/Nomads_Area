@@ -139,8 +139,7 @@ class BookingAdmin(admin.ModelAdmin):
     list_select_related = ["tour", "tour_date"]
     search_fields = ["customer_name", "customer_contact", "tour__title"]
     list_editable = ["status"]
-    readonly_fields = ["price_per_person", "total_price", "remainder_amount",
-                       "deposit_amount", "deposit_percent", "created_at"]
+    readonly_fields = ["price_per_person", "total_price", "created_at"]
 
 
 @admin.register(QuizQuestion)

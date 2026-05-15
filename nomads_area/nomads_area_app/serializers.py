@@ -1,6 +1,4 @@
-import math
 from datetime import date, timedelta
-
 from django.db import transaction
 from django.db.models import Q
 from django.utils import timezone
@@ -619,9 +617,6 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
     total_price = serializers.IntegerField(read_only=True)
     price_per_person = serializers.IntegerField(read_only=True)
-    remainder_amount = serializers.IntegerField(read_only=True)
-    deposit_amount = serializers.IntegerField(read_only=True)
-    deposit_percent = serializers.IntegerField(read_only=True)
     status = serializers.CharField(read_only=True)
     number_of_people = serializers.IntegerField(read_only=True)
 
@@ -630,7 +625,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
         fields = ["id", "tour", "tour_date", "preferred_start_date", "preferred_end_date",
                   "customer_name", "customer_contact", "people_details", "comment",
                   "adults", "children", "number_of_people", "price_per_person",
-                  "total_price", "remainder_amount", "deposit_percent", "deposit_amount", "status"]
+                  "total_price", "status"]
 
     def _find_duplicate(self, tour, customer_contact):
         window = timezone.now() - timedelta(minutes=Booking.DEDUP_WINDOW_MINUTES)
@@ -721,7 +716,6 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
             price_per_person = tour.price
             total_price = tour.price * number_of_people
-            remainder_amount = 0
 
             locked_date.available_spots -= number_of_people
             locked_date.save(update_fields=["available_spots"])
@@ -736,17 +730,13 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             if tier:
                 price_per_person = tier.price_per_person
                 total_price = tier.price_per_person * number_of_people
-                remainder_amount = 0
             else:
                 total_price = tour.price
                 price_per_person = tour.price // number_of_people
-                remainder_amount = tour.price % number_of_people
 
             saved_tour_date = None
             saved_start_date = validated_data.get("preferred_start_date")
             saved_end_date = validated_data.get("preferred_end_date")
-
-        deposit_amount = math.ceil(total_price * 30 / 100)
 
         return Booking.objects.create(
             tour=tour,
@@ -762,9 +752,6 @@ class BookingCreateSerializer(serializers.ModelSerializer):
             number_of_people=number_of_people,
             price_per_person=price_per_person,
             total_price=total_price,
-            remainder_amount=remainder_amount,
-            deposit_percent=30,
-            deposit_amount=deposit_amount,
             status="pending",
         )
 
