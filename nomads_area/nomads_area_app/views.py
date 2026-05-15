@@ -10,7 +10,7 @@ from rest_framework.response import Response
 from .filters import TourFilter
 from .models import (Attraction, City, Country, QuizProgress, QuizQuestion,
                      SiteSettings, TeamMember, Tour, TourCategory, TourDate,
-                     TransferRoute, TransportRequest)
+                     TransferRoute, TransportRequest, Payment)
 from .notifications import (send_booking_notification, send_contact_notification,
                              send_quiz_notification, send_transport_notification)
 from .serializers import (AttractionDetailSerializer, AttractionListSerializer,
@@ -20,7 +20,7 @@ from .serializers import (AttractionDetailSerializer, AttractionListSerializer,
                           QuizQuestionSerializer, SiteSettingsSerializer, TeamMemberSerializer,
                           TourCategoryDetailSerializer, TourCategoryListSerializer,
                           TourDateUpcomingSerializer, TourDetailSerializer, TourListSerializer,
-                          TransferRouteSerializer, TransportRequestCreateSerializer)
+                          TransferRouteSerializer, TransportRequestCreateSerializer, PaymentCreateSerializer)
 from .throttles import FormSubmitThrottle
 
 
@@ -177,6 +177,10 @@ class BookingCreateView(generics.CreateAPIView):
         except Exception as e:
             logger.exception("Не удалось отправить уведомление о бронировании: %s", e)
 
+class PaymentCreateView(generics.CreateAPIView):
+    serializer_class = PaymentCreateSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [FormSubmitThrottle]
 
 # ========================
 # QUIZ

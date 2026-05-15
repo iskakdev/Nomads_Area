@@ -335,6 +335,38 @@ class Booking(models.Model):
     def __str__(self):
         return f"{self.customer_name} - {self.tour.title}"
 
+class Payment(models.Model):
+    STATUS_CHOICES = (
+        ("pending", "Ожидает оплаты"),
+        ("paid", "Оплачен"),
+        ("failed", "Ошибка оплаты"),
+        ("cancelled", "Отменён"),
+    )
+
+    PROVIDER_CHOICES = (
+        ("finikpay", "FinikPay"),
+    )
+
+    booking = models.OneToOneField(Booking, on_delete=models.CASCADE, related_name="payment")
+    provider = models.CharField(max_length=32, choices=PROVIDER_CHOICES, default="finikpay")
+    amount = models.PositiveIntegerField()
+    currency = models.CharField(max_length=3, default="USD")
+    external_payment_id = models.CharField(max_length=128, blank=True, default="")
+    payment_url = models.URLField(blank=True, default="")
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+    paid_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [
+            models.Index(fields=["status", "created_at"], name="payment_status_created_idx"),
+            models.Index(fields=["external_payment_id"], name="payment_external_id_idx"),
+        ]
+
+    def __str__(self):
+        return f"{self.booking_id} - {self.amount} {self.currency} - {self.status}"
+
 # ========================
 # QUIZ
 # ========================

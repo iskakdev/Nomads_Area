@@ -6,7 +6,7 @@ from django.utils.translation import get_language
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 
-from .models import (FAQ, Attraction, AttractionImage, Booking, City, ContactRequest,
+from .models import (FAQ, Attraction, AttractionImage, Booking, Payment, City, ContactRequest,
                      Country, ExtraService, ItineraryDay, QuizAnswerOption, QuizLead,
                      QuizProgress, QuizQuestion, SiteSettings, TeamMember, Tour,
                      TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint,
@@ -761,6 +761,40 @@ class BookingStatusSerializer(serializers.ModelSerializer):
         model = Booking
         fields = ["id", "status"]
 
+
+class PaymentSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ["id", "booking", "provider", "amount", "currency", "external_payment_id",
+                  "payment_url", "status", "created_at", "paid_at"]
+        read_only_fields = ["provider", "amount", "currency", "external_payment_id",
+                            "payment_url", "status", "created_at", "paid_at"]
+
+
+class PaymentCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Payment
+        fields = ["id", "booking", "provider", "amount", "currency", "payment_url", "status", "created_at"]
+        read_only_fields = ["id", "provider", "amount", "currency", "payment_url", "status", "created_at"]
+
+    def validate_booking(self, booking):
+        if booking.status == "cancelled":
+            raise serializers.ValidationError("Нельзя создать оплату для отменённого бронирования.")
+
+        if hasattr(booking, "payment"):
+            raise serializers.ValidationError("Оплата для этого бронирования уже создана.")
+
+        return booking
+
+    def create(self, validated_data):
+        booking = validated_data["booking"]
+
+        return Payment.objects.create(
+            booking=booking,
+            amount=booking.total_price,
+            currency=booking.tour.currency,
+            status="pending",
+        )
 
 # ========================
 # QUIZ
