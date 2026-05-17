@@ -24,7 +24,6 @@ django-filter==25.2
 django-modeltranslation==0.19.17
 django-phonenumber-field==8.3.0
 djangorestframework==3.16.1
-dotenv==0.9.9
 drf-spectacular==0.29.0
 filelock==3.25.2
 fsspec==2026.2.0

@@ -9,12 +9,16 @@ build/
 # Django
 *.sqlite3
 db.sqlite3
+/nomads_area/staticfiles/
 /nomads_area/static/
 /nomads_area/media/
 
 # Environment
 .env
 *.env
+venv/
+.venv/
+env/
 
 # IDE
 .idea/

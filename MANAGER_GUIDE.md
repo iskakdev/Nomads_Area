@@ -1,9 +1,18 @@
 # Руководство для менеджера Nomads Area
 
+---
+
 ## 1. Вход в админ-панель
 
-Адрес: `https://api.nomads-area.com/admin/` (после деплоя)
-Локально: `http://127.0.0.1:8000/admin/`
+Адрес:
+
+`https://api.nomads-area.com/admin/`
+
+(после деплоя)
+
+Локально:
+
+`http://127.0.0.1:8000/admin/`
 
 Логин и пароль предоставляются разработчиком.
 
@@ -12,6 +21,7 @@
 ## 2. Настройки сайта
 
 Перед началом работы заполните **Site Settings**:
+
 - Телефон, WhatsApp, Email
 - Соцсети (Instagram, Facebook, YouTube, TikTok)
 - Tripadvisor URL
@@ -21,12 +31,13 @@
 
 ## 3. Добавление страны
 
-1. Зайдите в раздел **Countries** -> **Add country**.
+1. **Countries** -> **Add country**.
 2. Заполните:
-   - `country_name` - название (Кыргызстан, Казахстан, Узбекистан)
+   - `country_name` - название страны
    - `country_image` - главное фото страны
-   - `hero_description` - описание для главного баннера
-3. Save.
+   - `hero_description` - описание для баннера
+   - `symbol_image` - символ страны
+3. Нажмите **Save**.
 
 ---
 
@@ -34,121 +45,352 @@
 
 1. **Cities** -> **Add city**.
 2. Выберите страну.
-3. Заполните название и фото.
+3. Заполните:
+   - `city_name`
+   - `city_image`
+4. Нажмите **Save**.
 
 ---
 
-## 5. Добавление тура (главное!)
+## 5. Добавление тура (главное)
 
 ### Шаг 1. Создать тур
+
 1. **Tours** -> **Add tour**.
 2. Заполните основные поля:
-   - `title` - название тура
-   - `tour_type` - **group** или **private**
-   - `country`, `city`
-   - `categories` - выберите подходящие
-   - `duration_days` - сколько дней
-   - `difficulty` - сложность
-   - `price` - базовая цена
-   - `currency` - USD или KGS
-   - `description` - описание (до 400 символов)
-   - `included` / `not_included`
+
+- `title` - название тура
+- `tour_type` - **group** или **private**
+- `country`, `city`
+- `categories` - категории тура
+- `season`
+- `duration_days` - количество дней
+- `difficulty` - сложность
+- `max_people`
+- `price` - базовая цена
+- `currency`
+- `description`
+- `included`
+- `not_included`
+- `activity_tags`
+
+---
 
 ### Шаг 2. Для GROUP тура - добавить даты
-В блоке **Tour Dates** (внизу страницы):
-- `start_date` - дата начала
-- `end_date` - дата окончания
-- `available_spots` - сколько мест (макс 10)
 
-### Шаг 3. Для PRIVATE тура - добавить ценовые тиры
+В блоке **Tour Dates**:
+
+- `start_date`
+- `end_date`
+- `available_spots`
+
+⚠️ Места уменьшаются автоматически после бронирования.
+
+---
+
+### Шаг 3. Для PRIVATE тура - добавить Price Tiers
+
 В блоке **Tour Price Tiers**:
-- `min_people` - от скольких человек
-- `max_people` - до скольких (можно пустое)
-- `price_per_person` - цена с человека
 
-### Шаг 4. Добавить программу по дням
+- `min_people`
+- `max_people`
+- `price_per_person`
+
+Пример:
+
+| min_people | max_people | price_per_person |
+|---|---|---|
+| 1 | 2 | 250 |
+| 3 | 5 | 200 |
+| 6 |  | 180 |
+
+---
+
+### Шаг 4. Добавить программу тура
+
 В блоке **Itinerary Days**:
-- `day_number` - номер дня
-- `title` - название дня
-- `description` - описание (до 200 символов)
-- `image` - фото дня
 
-### Шаг 5. Добавить фото
+- `day_number`
+- `title`
+- `description`
+- `image`
+- `tags`
+- `altitude`
+- `walking_distance`
+- `driving_distance`
+- `accommodation`
+
+---
+
+### Шаг 5. Добавить фотографии
+
 В блоке **Tour Images** загрузите несколько фото.
 
-### Шаг 6. Добавить FAQ (до 10 вопросов)
-В блоке **FAQs** добавьте вопросы и ответы.
-
-### Шаг 7. Save.
+⚠️ Первая фотография используется как обложка тура.
 
 ---
 
-## 6. Обработка заявок
+### Шаг 6. Добавить FAQ
 
-Все новые заявки приходят в **Telegram** и на **Email**.
+В блоке **FAQs**:
 
-### Бронирования (Bookings)
-1. **Bookings** - список всех заявок.
-2. Новые имеют статус `pending`.
-3. Свяжитесь с клиентом по контакту.
-4. Измените статус:
-   - `confirmed` - подтверждено
-   - `cancelled` - отменено
-   - `rejected` - отклонено
+- `question`
+- `answer`
 
-⚠️ **Важно:** Если бронирование GROUP отменяется, **не забудьте** вручную вернуть места в `Tour Dates`.
-
-### Заявки с квиза (QuizLeads)
-1. **Quiz Leads** - список.
-2. После обработки поставьте галочку `is_processed`.
-
-### Запросы на трансфер (TransportRequests)
-1. **Transport Requests** - список.
-2. Меняйте статус по аналогии с Bookings.
-
-### Контактные заявки (ContactRequests)
-1. **Contact Requests** - список.
-2. После ответа поставьте статус `answered`.
+Максимум: **10 FAQ** на один тур.
 
 ---
 
-## 7. Управление командой
+### Шаг 7. Дополнительные услуги
 
-**Team Members** - список сотрудников для главной страницы.
-- `order` - порядок отображения
-- `is_active` - показывать на сайте
+В блоке **Extra Services**:
+
+- аренда лошади
+- спальник
+- VIP трансфер
+- отдельный номер
+- фотосъёмка
+
+Поля:
+
+- `title`
+- `description`
+- `image`
+- `features`
+- `price`
+- `currency`
+- `price_label`
+
+---
+
+### Шаг 8. Точки маршрута
+
+В блоке **Tour Route Points**:
+
+- `title`
+- `latitude`
+- `longitude`
+- `order`
+
+---
+
+### Шаг 9. Нажать Save
+
+---
+
+## 6. Бронирования
+
+### Bookings
+
+Все новые заявки создаются со статусом:
+
+`pending`
+
+После связи с клиентом измените статус:
+
+- `confirmed`
+- `cancelled`
+- `rejected`
+
+⚠️ Важно:
+
+Если GROUP бронирование отменяется,
+места нужно вернуть вручную в **Tour Dates**.
+
+---
+
+## 7. Оплаты
+
+### Payments
+
+Статусы:
+
+- `pending`
+- `paid`
+- `failed`
+- `refunded`
+
+Пока FinikPay подключён не полностью,
+статус можно менять вручную.
 
 ---
 
 ## 8. Достопримечательности
 
-**Attractions** - места для посещения.
-- Привязываются к городу и (опционально) к турам.
+### Attractions
+
+Поля:
+
+- `city`
+- `name`
+- `description`
+- `image`
+- `tours`
+- `is_active`
 
 ---
 
 ## 9. Трансферы
 
-### Маршруты (Transfer Routes)
-1. **Transfer Routes** -> создайте маршрут (откуда -> куда).
-2. В блоке **Vehicle Types** добавьте машины:
-   - `category` - sedan / minivan / minibus
-   - `price` - цена за поездку
-   - `seats` - мест
-   - `bags` - багажа
+### Transfer Routes
+
+Создайте маршрут:
+
+- `departure_point`
+- `arrival_point`
+- `distance_km`
 
 ---
 
-## 10. Квиз
+### Vehicle Types
 
-**Quiz Questions** - вопросы для квиза.
-1. Создайте вопросы в нужном порядке.
-2. Для каждого вопроса добавьте варианты ответов в блоке **Options**.
+Для каждого маршрута добавьте машины:
+
+- `category`
+- `price`
+- `seats`
+- `bags`
+
+Типы машин:
+
+- `sedan`
+- `minivan`
+- `minibus`
 
 ---
 
-## Контакты разработчика
+## 10. Заявки на трансфер
 
-При проблемах с админкой свяжитесь с разработчиком:
-- Telegram: @your_telegram
-- Email: your@email.com
+### Transport Requests
+
+Статусы:
+
+- `pending`
+- `confirmed`
+- `cancelled`
+- `completed`
+
+---
+
+## 11. Контактные заявки
+
+### Contact Requests
+
+Источники:
+
+- `contact_form`
+- `footer_form`
+- `whatsapp_widget`
+- `consultation`
+
+После ответа клиенту:
+
+`status = answered`
+
+---
+
+## 12. Команда
+
+### Team Members
+
+Поля:
+
+- `full_name`
+- `position`
+- `description`
+- `photo`
+- `order`
+- `is_active`
+
+⚠️ `order` влияет на порядок отображения.
+
+---
+
+## 13. Квиз
+
+### Quiz Questions
+
+Поля:
+
+- `text`
+- `question_type`
+- `order`
+- `is_active`
+
+---
+
+### Quiz Answer Options
+
+Поля:
+
+- `text`
+- `order`
+
+---
+
+## 14. Заявки квиза
+
+### Quiz Leads
+
+После обработки:
+
+`is_processed = True`
+
+---
+
+## 15. Уведомления
+
+Все новые заявки автоматически отправляются:
+
+- Telegram
+- Email
+
+Типы уведомлений:
+
+- бронирования
+- контактные формы
+- трансферы
+- квиз
+
+---
+
+## 16. Мультиязычность
+
+Сайт поддерживает:
+
+- русский
+- английский
+
+В админке будут вкладки:
+
+`RU | EN`
+
+Заполняйте оба языка.
+
+---
+
+## 17. Важные правила
+
+Не удаляйте:
+
+- страны с турами
+- города с турами
+- даты туров с бронированиями
+
+Перед публикацией тура проверьте:
+
+- фото
+- даты
+- FAQ
+- описание
+- цену
+- маршруты
+- количество мест
+
+---
+
+## 18. Контакты разработчика
+
+Telegram: `@iskhak_dev`
+
+Email: `eshmatoviskak@gmail.com`
