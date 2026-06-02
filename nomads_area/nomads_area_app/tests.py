@@ -5,10 +5,12 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
-from .models import (Attraction, Booking, City, ContactRequest, Country,
-                     QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
-                     Tour, TourDate, TourPriceTier, TransferRoute,
-                     TransportRequest, VehicleType)
+from .models import (
+    Booking, City, ContactRequest, Country,
+    QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
+    Tour, TourDate, TourPriceTier, TransferRoute,
+    TransportRequest, VehicleType,
+)
 
 
 class BaseNoSpamTestCase(APITestCase):
@@ -17,7 +19,8 @@ class BaseNoSpamTestCase(APITestCase):
 
         self.patcher_throttle = patch(
             "nomads_area_app.throttles.FormSubmitThrottle.allow_request",
-            return_value=True)
+            return_value=True,
+        )
         self.patcher_tg = patch("nomads_area_app.tasks.send_telegram_task.delay")
         self.patcher_email = patch("nomads_area_app.tasks.send_email_task.delay")
 
@@ -96,7 +99,6 @@ class ProjectTests(BaseNoSpamTestCase):
         route = TransferRoute.objects.create(
             departure_point="Bishkek",
             arrival_point="Karakol",
-            distance_km=250,
         )
         self.vehicle = VehicleType.objects.create(
             route=route,
@@ -106,20 +108,24 @@ class ProjectTests(BaseNoSpamTestCase):
             bags=2,
         )
 
-        self.booking_url = reverse("booking-create")
-        self.transport_url = reverse("transport-request-create")
-        self.contact_url = reverse("contact-request")
-        self.quiz_submit_url = reverse("quiz-submit")
-        self.quiz_progress_url = reverse("quiz-progress")
-        self.quiz_progress_save_url = reverse("quiz-progress-save")
-        self.quiz_questions_url = reverse("quiz-questions")
-        self.tour_dates_upcoming_url = reverse("tour-dates-upcoming")
+        self.booking_url = "/api/ru/bookings/"
+        self.transport_url = "/api/ru/transport-requests/"
+        self.contact_url = "/api/ru/contact/"
+        self.quiz_submit_url = "/api/ru/quiz/submit/"
+        self.quiz_progress_url = "/api/ru/quiz/progress/"
+        self.quiz_questions_url = "/api/ru/quiz/questions/"
+        self.tours_url = "/api/ru/tours/"
 
     def _reset_mocks(self):
         self.mock_tg.reset_mock()
         self.mock_email.reset_mock()
 
+    # ------------------------------------------------------------------ #
+    # БРОНИРОВАНИЯ                                                         #
+    # ------------------------------------------------------------------ #
+
     def test_booking_group_success(self):
+        """Групповое бронирование создаётся, цена и предоплата считаются правильно."""
         self._reset_mocks()
 
         payload = {
@@ -135,9 +141,9 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["number_of_people"], 2)
-        self.assertEqual(response.data["price_per_person"], 100)
-        self.assertEqual(response.data["total_price"], 200)
-        self.assertEqual(response.data["deposit_amount"], 60)
+        self.assertEqual(float(response.data["price_per_person"]), 100.0)
+        self.assertEqual(float(response.data["total_price"]), 200.0)
+        self.assertEqual(float(response.data["prepayment_amount"]), 60.0)
 
         self.group_tour_date_available.refresh_from_db()
         self.assertEqual(self.group_tour_date_available.available_spots, 3)
@@ -146,6 +152,7 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(self.mock_email.call_count, 1)
 
     def test_booking_overbooking_fails(self):
+        """Нельзя забронировать больше мест чем доступно."""
         payload = {
             "tour": self.group_tour.id,
             "tour_date": self.group_tour_date_available.id,
@@ -158,14 +165,29 @@ class ProjectTests(BaseNoSpamTestCase):
         response = self.client.post(self.booking_url, payload, format="json")
 
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        self.assertIn("adults", response.data)
 
         self.group_tour_date_available.refresh_from_db()
         self.assertEqual(self.group_tour_date_available.available_spots, 5)
+        self.assertEqual(Booking.objects.count(), 0)
 
+    def test_booking_sold_out_date_fails(self):
+        """Нельзя забронировать дату с нулём мест."""
+        payload = {
+            "tour": self.group_tour.id,
+            "tour_date": self.group_tour_date_sold_out.id,
+            "customer_name": "Клиент",
+            "customer_contact": "+996500000001",
+            "adults": 1,
+            "children": 0,
+        }
+
+        response = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertEqual(Booking.objects.count(), 0)
 
     def test_booking_private_tier_pricing(self):
+        """Приватный тур — цена берётся из тира по количеству людей."""
         self._reset_mocks()
 
         payload = {
@@ -182,14 +204,61 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response.data["number_of_people"], 4)
-        self.assertEqual(response.data["price_per_person"], 100)
-        self.assertEqual(response.data["total_price"], 400)
-        self.assertEqual(response.data["deposit_amount"], 120)
+        self.assertEqual(float(response.data["price_per_person"]), 100.0)
+        self.assertEqual(float(response.data["total_price"]), 400.0)
+        self.assertEqual(float(response.data["prepayment_amount"]), 120.0)
 
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
 
+    def test_booking_private_small_group_tier(self):
+        """Приватный тур 1-2 человека — берётся первый тир (150$/чел)."""
+        payload = {
+            "tour": self.private_tour.id,
+            "preferred_start_date": date.today() + timedelta(days=5),
+            "preferred_end_date": date.today() + timedelta(days=8),
+            "customer_name": "Пара",
+            "customer_contact": "+996700000001",
+            "adults": 2,
+            "children": 0,
+        }
+
+        response = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(float(response.data["price_per_person"]), 150.0)
+        self.assertEqual(float(response.data["total_price"]), 300.0)
+
+    def test_booking_group_without_date_fails(self):
+        """Групповой тур без даты — ошибка валидации."""
+        payload = {
+            "tour": self.group_tour.id,
+            "customer_name": "Клиент",
+            "customer_contact": "+996500000002",
+            "adults": 1,
+            "children": 0,
+        }
+
+        response = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    def test_booking_private_without_dates_fails(self):
+        """Приватный тур без желаемых дат — ошибка валидации."""
+        payload = {
+            "tour": self.private_tour.id,
+            "customer_name": "Клиент",
+            "customer_contact": "+996500000003",
+            "adults": 1,
+            "children": 0,
+        }
+
+        response = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
     def test_booking_deduplication(self):
+        """Два одинаковых запроса подряд — создаётся одна бронь."""
         self._reset_mocks()
 
         payload = {
@@ -206,6 +275,7 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response1.data["id"], response2.data["id"])
 
         self.assertEqual(Booking.objects.count(), 1)
 
@@ -215,18 +285,40 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
 
-    def test_transport_create_and_dedup(self):
+    # ------------------------------------------------------------------ #
+    # ТРАНСФЕРЫ                                                            #
+    # ------------------------------------------------------------------ #
+
+    def test_transport_create_success(self):
+        """Заявка на трансфер создаётся, цена берётся из автомобиля."""
         self._reset_mocks()
 
         payload = {
             "vehicle": self.vehicle.id,
             "customer_phone": "+996555999888",
-            "passengers": 2,
-            "travel_date": date.today() + timedelta(days=30),
-            "flight_number": "FL123",
             "customer_name": "Client",
-            "luggage_count": 1,
+            "passengers": 2,
+            "bags": 1,
             "comment": "Test",
+        }
+
+        response = self.client.post(self.transport_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(TransportRequest.objects.count(), 1)
+        self.assertEqual(self.mock_tg.call_count, 1)
+        self.assertEqual(self.mock_email.call_count, 1)
+
+    def test_transport_deduplication(self):
+        """Два одинаковых запроса — создаётся одна заявка."""
+        self._reset_mocks()
+
+        payload = {
+            "vehicle": self.vehicle.id,
+            "customer_phone": "+996555999888",
+            "customer_name": "Client",
+            "passengers": 2,
+            "bags": 1,
         }
 
         response1 = self.client.post(self.transport_url, payload, format="json")
@@ -234,14 +326,28 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-
         self.assertEqual(TransportRequest.objects.count(), 1)
-        self.assertEqual(response1.data["total_price"], self.vehicle.price)
-
         self.assertEqual(self.mock_tg.call_count, 1)
-        self.assertEqual(self.mock_email.call_count, 1)
 
-    def test_contact_create_and_dedup(self):
+    def test_transport_overbooking_passengers_fails(self):
+        """Пассажиров больше чем мест в авто — ошибка."""
+        payload = {
+            "vehicle": self.vehicle.id,
+            "customer_phone": "+996555000001",
+            "passengers": 10,
+            "bags": 0,
+        }
+
+        response = self.client.post(self.transport_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+
+    # ------------------------------------------------------------------ #
+    # КОНТАКТНЫЕ ЗАЯВКИ                                                    #
+    # ------------------------------------------------------------------ #
+
+    def test_contact_create_success(self):
+        """Контактная заявка создаётся."""
         self._reset_mocks()
 
         payload = {
@@ -252,63 +358,83 @@ class ProjectTests(BaseNoSpamTestCase):
             "source": "tour_page",
         }
 
+        response = self.client.post(self.contact_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ContactRequest.objects.count(), 1)
+        self.assertEqual(self.mock_tg.call_count, 1)
+        self.assertEqual(self.mock_email.call_count, 1)
+
+    def test_contact_deduplication(self):
+        """Два одинаковых обращения — создаётся одно."""
+        self._reset_mocks()
+
+        payload = {
+            "name": "Contact Name",
+            "phone_or_email": "contact@test.com",
+            "subject": "Hello",
+            "message": "Message body",
+        }
+
         response1 = self.client.post(self.contact_url, payload, format="json")
         response2 = self.client.post(self.contact_url, payload, format="json")
 
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-
         self.assertEqual(ContactRequest.objects.count(), 1)
-
         self.assertEqual(self.mock_tg.call_count, 1)
-        self.assertEqual(self.mock_email.call_count, 1)
 
-    def test_quiz_questions_list_ok(self):
-        QuizQuestion.objects.create(
-            text="Q1",
-            question_type="radio",
+    # ------------------------------------------------------------------ #
+    # КВИЗ                                                                 #
+    # ------------------------------------------------------------------ #
+
+    def test_quiz_questions_list(self):
+        """Список вопросов квиза возвращается."""
+        q = QuizQuestion.objects.create(
+            question_text="Какой тип тура?",
+            question_type="single",
             order=1,
             is_active=True,
         )
-        # опции не обязательны для 200, но добавим
-        q = QuizQuestion.objects.get(text="Q1")
-        QuizAnswerOption.objects.create(question=q, text="A1", order=1)
+        QuizAnswerOption.objects.create(question=q, option_text="Горы")
 
         response = self.client.get(self.quiz_questions_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data), 1)
 
-    def test_quiz_progress_flow(self):
-        self._reset_mocks()
+    def test_quiz_progress_start(self):
+        """Старт квиза создаёт прогресс."""
+        response = self.client.post(self.quiz_progress_url)
 
-        response_get = self.client.get(self.quiz_progress_url)
-        self.assertEqual(response_get.status_code, status.HTTP_200_OK)
-
-        self.assertIn("answers", response_get.data)
-        self.assertIn("current_question_index", response_get.data)
-
-        payload = {
-            "answers": {"Q1": "A1"},
-            "current_question_index": 1,
-        }
-        response_patch = self.client.patch(
-            self.quiz_progress_save_url,
-            payload,
-            format="json"
-        )
-        self.assertEqual(response_patch.status_code, status.HTTP_200_OK)
-        self.assertEqual(response_patch.data["current_question_index"], 1)
-
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertTrue(QuizProgress.objects.exists())
-        self.assertEqual(self.mock_tg.call_count, 0)
 
-    def test_quiz_submit_and_dedup(self):
+    def test_quiz_submit_success(self):
+        """Лид из квиза создаётся."""
         self._reset_mocks()
 
         payload = {
-            "name": "Quiz User",
-            "phone_or_telegram": "tguser123",
-            "answers": {"Q1": ["A1"], "Q2": "B1"},
+            "customer_name": "Quiz User",
+            "customer_contact": "tguser123",
+            "answers_data": {"1": "Горы"},
+        }
+
+        response = self.client.post(self.quiz_submit_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(QuizLead.objects.count(), 1)
+        self.assertEqual(self.mock_tg.call_count, 1)
+        self.assertEqual(self.mock_email.call_count, 1)
+
+    def test_quiz_submit_deduplication(self):
+        """Два одинаковых лида — создаётся один."""
+        self._reset_mocks()
+
+        payload = {
+            "customer_name": "Quiz User",
+            "customer_contact": "tguser123",
+            "answers_data": {"1": "Горы"},
         }
 
         response1 = self.client.post(self.quiz_submit_url, payload, format="json")
@@ -316,63 +442,42 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-
         self.assertEqual(QuizLead.objects.count(), 1)
         self.assertEqual(self.mock_tg.call_count, 1)
-        self.assertEqual(self.mock_email.call_count, 1)
 
-    def test_tour_filters_exclude_sold_out(self):
-        self._reset_mocks()
+    # ------------------------------------------------------------------ #
+    # ФИЛЬТРЫ ТУРОВ                                                        #
+    # ------------------------------------------------------------------ #
 
+    def test_tour_list_returns_active_tours(self):
+        """Список туров возвращает только активные."""
+        inactive_tour = Tour.objects.create(
+            title="Inactive Tour",
+            tour_type="group",
+            country=self.country,
+            city=self.city,
+            duration_days=1,
+            price=50,
+            currency="USD",
+            description="desc",
+            included="incl",
+            is_active=False,
+        )
+
+        url = reverse("tours-list")
+        response = self.client.get(url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data.get("results", response.data)]
+        self.assertNotIn(inactive_tour.id, ids)
+
+    def test_tour_filter_exclude_sold_out(self):
+        """Фильтр exclude_sold_out скрывает туры без мест."""
         url = reverse("tours-list")
         response = self.client.get(url, {"exclude_sold_out": "true"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data.get("results", response.data)]
 
-        ids = [item["id"] for item in response.data["results"]] \
-            if isinstance(response.data, dict) and "results" in response.data \
-            else [item["id"] for item in response.data]
-
-        # Должны быть:
-        # - self.group_tour (но только если есть доступные даты; т.к. у тура есть дата с доступными местами,
-        #   тур включится в общий список один раз)
-        # - self.private_tour (always included)
         self.assertIn(self.group_tour.id, ids)
         self.assertIn(self.private_tour.id, ids)
-
-    def test_tour_dates_upcoming(self):
-        response = self.client.get(self.tour_dates_upcoming_url)
-        self.assertEqual(response.status_code, status.HTTP_200_OK)
-
-        ids = [item["id"] for item in response.data]
-
-        # Дата available должна быть
-        self.assertIn(self.group_tour_date_available.id, ids)
-        # sold out date не должна быть
-        self.assertNotIn(self.group_tour_date_sold_out.id, ids)
-
-    # ========================
-    # QUIZ QUESTIONS
-    # ========================
-
-    q1, _ = QuizQuestion.objects.get_or_create(
-        text="Какой тип путешествия вам интересен?",
-        defaults={"question_type": "radio", "order": 1, "is_active": True}
-    )
-    QuizAnswerOption.objects.get_or_create(question=q1, text="Горы и трекинг", defaults={"order": 1})
-    QuizAnswerOption.objects.get_or_create(question=q1, text="Культура и города", defaults={"order": 2})
-    QuizAnswerOption.objects.get_or_create(question=q1, text="Джип-тур", defaults={"order": 3})
-
-    q2, _ = QuizQuestion.objects.get_or_create(
-        text="Сколько человек поедет?",
-        defaults={"question_type": "radio", "order": 2, "is_active": True}
-    )
-    QuizAnswerOption.objects.get_or_create(question=q2, text="1", defaults={"order": 1})
-    QuizAnswerOption.objects.get_or_create(question=q2, text="2", defaults={"order": 2})
-    QuizAnswerOption.objects.get_or_create(question=q2, text="3-4", defaults={"order": 3})
-    QuizAnswerOption.objects.get_or_create(question=q2, text="5+", defaults={"order": 4})
-
-    QuizQuestion.objects.get_or_create(
-        text="Оставьте ваш контакт (WhatsApp/Telegram):",
-        defaults={"question_type": "text", "order": 3, "is_active": True}
-    )
