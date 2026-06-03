@@ -10,6 +10,7 @@ def send_booking_notification(booking):
     text = (
         f"🧭 <b>Новая бронь #{booking.id}</b>\n\n"
         f"<b>Тур:</b> {clean(booking.tour.title)}\n"
+        f"<b>Тип тура:</b> {clean(booking.tour.get_tour_type_display())}\n"
         f"<b>Клиент:</b> {clean(booking.customer_name)}\n"
         f"<b>Контакт:</b> {clean(booking.customer_contact)}\n"
         f"<b>Людей:</b> {booking.number_of_people}\n"
