@@ -1,7 +1,6 @@
 from datetime import date, timedelta
 from unittest.mock import patch
 
-from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APITestCase
 
@@ -12,6 +11,9 @@ from .models import (
     TransportRequest, VehicleType,
 )
 
+LANG = "ru"
+API = f"/api/{LANG}"
+
 
 class BaseNoSpamTestCase(APITestCase):
     def setUp(self):
@@ -21,14 +23,21 @@ class BaseNoSpamTestCase(APITestCase):
             "nomads_area_app.throttles.FormSubmitThrottle.allow_request",
             return_value=True,
         )
+        # Патчим delay в tasks, а on_commit заменяем чтобы вызывался сразу
         self.patcher_tg = patch("nomads_area_app.tasks.send_telegram_task.delay")
         self.patcher_email = patch("nomads_area_app.tasks.send_email_task.delay")
+        self.patcher_on_commit = patch(
+            "django.db.transaction.on_commit",
+            side_effect=lambda fn: fn(),
+        )
 
         self.mock_allow = self.patcher_throttle.start()
         self.mock_tg = self.patcher_tg.start()
         self.mock_email = self.patcher_email.start()
+        self.mock_on_commit = self.patcher_on_commit.start()
 
     def tearDown(self):
+        self.patcher_on_commit.stop()
         self.patcher_email.stop()
         self.patcher_tg.stop()
         self.patcher_throttle.stop()
@@ -108,13 +117,13 @@ class ProjectTests(BaseNoSpamTestCase):
             bags=2,
         )
 
-        self.booking_url = "/api/ru/bookings/"
-        self.transport_url = "/api/ru/transport-requests/"
-        self.contact_url = "/api/ru/contact/"
-        self.quiz_submit_url = "/api/ru/quiz/submit/"
-        self.quiz_progress_url = "/api/ru/quiz/progress/"
-        self.quiz_questions_url = "/api/ru/quiz/questions/"
-        self.tours_url = "/api/ru/tours/"
+        self.booking_url = f"{API}/bookings/"
+        self.transport_url = f"{API}/transport-requests/"
+        self.contact_url = f"{API}/contact/"
+        self.quiz_submit_url = f"{API}/quiz/submit/"
+        self.quiz_progress_url = f"{API}/quiz/progress/"
+        self.quiz_questions_url = f"{API}/quiz/questions/"
+        self.tours_url = f"{API}/tours/"
 
     def _reset_mocks(self):
         self.mock_tg.reset_mock()
@@ -464,8 +473,7 @@ class ProjectTests(BaseNoSpamTestCase):
             is_active=False,
         )
 
-        url = reverse("tours-list")
-        response = self.client.get(url)
+        response = self.client.get(self.tours_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = [item["id"] for item in response.data.get("results", response.data)]
@@ -473,8 +481,7 @@ class ProjectTests(BaseNoSpamTestCase):
 
     def test_tour_filter_exclude_sold_out(self):
         """Фильтр exclude_sold_out скрывает туры без мест."""
-        url = reverse("tours-list")
-        response = self.client.get(url, {"exclude_sold_out": "true"})
+        response = self.client.get(self.tours_url, {"exclude_sold_out": "true"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         ids = [item["id"] for item in response.data.get("results", response.data)]

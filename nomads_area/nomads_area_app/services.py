@@ -40,14 +40,17 @@ def _create_booking_and_payment_db(validated_data, price_data, tour_date):
         if total_people > locked_tour_date.available_spots:
             raise InsufficientSpotsError(available=locked_tour_date.available_spots)
 
+    # Убираем tour_date из validated_data — передаём явно через locked_tour_date
+    data = {k: v for k, v in validated_data.items() if k != "tour_date"}
+
     booking = Booking.objects.create(
         tour_date=locked_tour_date,
         price_per_person=price_data["price_per_person"],
         total_price=price_data["total_price"],
         prepayment_amount=price_data["prepayment_amount"],
-        currency=validated_data["tour"].currency,
+        currency=data["tour"].currency,
         status=Booking.STATUS_PENDING,
-        **validated_data,
+        **data,
     )
     payment = Payment.objects.create(
         booking=booking,
@@ -68,6 +71,9 @@ def create_booking_with_payment_service(validated_data, price_tier=None, tour_da
 
     dedup_key = f"{tour.id}:{customer_contact.lower().strip()}:{created_at.strftime('%Y-%m-%d-%H')}"
     dedup_hash = hashlib.sha256(dedup_key.encode()).hexdigest()[:64]
+
+    # Добавляем dedup_hash в данные для сохранения в БД
+    validated_data["dedup_hash"] = dedup_hash
 
     # Шаг 1: только БД, никакого IO
     with transaction.atomic():
