@@ -12,24 +12,18 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .filters import TourFilter
-from .models import (
-    Attraction, City, Country, QuizProgress, QuizQuestion, SiteSettings,
-    TeamMember, Tour, TourCategory, TourDate, TransferRoute, TransportRequest, Payment
-)
-from .notifications import (
-    send_booking_notification, send_contact_notification,
-    send_quiz_notification, send_transport_notification, send_payment_success_notification
-)
+from .models import (Attraction, City, Country, QuizProgress, QuizQuestion, SiteSettings,
+                     TeamMember, Tour, TourCategory, TourDate, TransferRoute, TransportRequest, Payment)
+from .notifications import (send_booking_notification, send_contact_notification,
+                            send_quiz_notification, send_transport_notification, send_payment_success_notification)
 from .payment_providers import PaymentProviderError, PaymentVerificationError, get_payment_provider
-from .serializers import (
-    AttractionDetailSerializer, AttractionListSerializer, BookingCreateSerializer,
-    CityDetailSerializer, CityListSerializer, ContactRequestSerializer,
-    CountryDetailSerializer, CountryListSerializer, QuizLeadSerializer,
-    QuizProgressSerializer, QuizProgressUpdateSerializer, QuizQuestionSerializer,
-    SiteSettingsSerializer, TeamMemberSerializer, TourCategoryDetailSerializer,
-    TourCategoryListSerializer, TourDetailSerializer, TourListSerializer,
-    TransferRouteSerializer, TransportRequestCreateSerializer
-)
+from .serializers import (AttractionDetailSerializer, AttractionListSerializer, BookingCreateSerializer,
+                          CityDetailSerializer, CityListSerializer, ContactRequestSerializer,
+                          CountryDetailSerializer, CountryListSerializer, QuizLeadSerializer,
+                          QuizProgressSerializer, QuizProgressUpdateSerializer, QuizQuestionSerializer,
+                          SiteSettingsSerializer, TeamMemberSerializer, TourCategoryDetailSerializer,
+                          TourCategoryListSerializer, TourDetailSerializer, TourListSerializer,
+                          TransferRouteSerializer, TransportRequestCreateSerializer)
 from .services import handle_payment_webhook_service, update_quiz_progress_service
 from .throttles import FormSubmitThrottle
 

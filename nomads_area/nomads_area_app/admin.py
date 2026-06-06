@@ -3,13 +3,11 @@ from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
 from modeltranslation.admin import TranslationAdmin
-from .models import (
-    Attraction, AttractionImage, Booking, City, ContactRequest, Country,
-    ExtraService, FAQ, ItineraryDay, Payment, QuizAnswerOption, QuizLead,
-    QuizProgress, QuizQuestion, SiteSettings, TeamMember, Tour,
-    TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint,
-    TransferRoute, TransportRequest, VehicleType
-)
+from .models import (Attraction, AttractionImage, Booking, City, ContactRequest, Country,
+                     ExtraService, FAQ, ItineraryDay, Payment, QuizAnswerOption, QuizLead,
+                     QuizProgress, QuizQuestion, SiteSettings, TeamMember, Tour,
+                     TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint,
+                     TransferRoute, TransportRequest, VehicleType)
 
 admin.site.site_header = "Nomads Area Admin"
 admin.site.site_title = "Nomads Area"

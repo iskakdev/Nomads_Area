@@ -1,12 +1,10 @@
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
-from .views import (
-    AttractionViewSet, BookingCreateView, CityViewSet, ContactRequestCreateView,
-    CountryViewSet, FinikPayWebhookView, QuizLeadCreateView,
-    QuizProgressStartView, QuizProgressUpdateView, QuizQuestionListView,
-    SiteSettingsView, TeamMemberListView, TourCategoryViewSet, TourViewSet,
-    TransferRouteListView, TransportRequestCreateView
-)
+from .views import (AttractionViewSet, BookingCreateView, CityViewSet, ContactRequestCreateView,
+                    CountryViewSet, FinikPayWebhookView, QuizLeadCreateView,
+                    QuizProgressStartView, QuizProgressUpdateView, QuizQuestionListView,
+                    SiteSettingsView, TeamMemberListView, TourCategoryViewSet, TourViewSet,
+                    TransferRouteListView, TransportRequestCreateView)
 
 router = DefaultRouter()
 router.register(r"countries", CountryViewSet, basename="countries")

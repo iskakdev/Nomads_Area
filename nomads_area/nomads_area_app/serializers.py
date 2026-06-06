@@ -2,16 +2,12 @@ from datetime import date
 from django.utils.translation import get_language
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
-from .models import (
-    Attraction, AttractionImage, Booking, City, ContactRequest, Country,
-    ExtraService, FAQ, ItineraryDay, Payment, QuizLead, QuizProgress,
-    QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory, TourDate,
-    TourImage, TourPriceTier, TourRoutePoint, TransferRoute, TransportRequest, VehicleType
-)
-from .services import (
-    create_booking_with_payment_service, create_contact_request_service,
-    create_quiz_lead_service, create_transport_request_service
-)
+from .models import (Attraction, AttractionImage, Booking, City, ContactRequest, Country,
+                     ExtraService, FAQ, ItineraryDay, Payment, QuizLead, QuizProgress,
+                     QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory, TourDate,
+                     TourImage, TourPriceTier, TourRoutePoint, TransferRoute, TransportRequest, VehicleType)
+from .services import (create_booking_with_payment_service, create_contact_request_service,
+                       create_quiz_lead_service, create_transport_request_service)
 
 
 def is_english():
@@ -42,7 +38,12 @@ def get_vehicle_cat_display(v):
 class SiteSettingsSerializer(serializers.ModelSerializer):
     class Meta:
         model = SiteSettings
-        fields = "__all__"
+        fields = ["id", "phone", "whatsapp", "email",
+                  "instagram_url", "facebook_url", "youtube_url", "tiktok_url", "tripadvisor_url",
+                  "about_text", "about_video_url",
+                  "years_experience", "tourists_count", "routes_count",
+                  "reviews_enabled", "elfsight_google_reviews_app_id", "tripadvisor_widget_code",
+                  "privacy_policy"]
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):
@@ -127,11 +128,9 @@ class TourListSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tour
-        fields = [
-            "id", "title", "tour_type", "tour_type_display", "season", "season_display",
-            "duration_days", "difficulty", "price", "currency", "max_group_size",
-            "cover_image", "upcoming_dates", "categories",
-        ]
+        fields = ["id", "title", "tour_type", "tour_type_display", "season", "season_display",
+                  "duration_days", "difficulty", "price", "currency", "max_group_size",
+                  "cover_image", "upcoming_dates", "categories"]
 
     def get_cover_image(self, obj):
         imgs = obj.images.all()
@@ -174,10 +173,7 @@ class ItineraryDaySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = ItineraryDay
-        fields = [
-            "day_number", "title", "description", "image", "image_url",
-            "altitude", "walking_distance", "driving_distance", "accommodation",
-        ]
+        fields = ["day_number", "title", "description", "image", "image_url", "altitude", "walking_distance", "driving_distance", "accommodation"]
 
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
@@ -185,7 +181,7 @@ class ItineraryDaySerializer(serializers.ModelSerializer):
 class AttractionInTourSerializer(serializers.ModelSerializer):
     """
     Лёгкая версия достопримечательности для вложения в тур.
-    Не содержит список туров — иначе была бы бесконечная рекурсия:
+    Не содержит список туров - иначе была бы бесконечная рекурсия:
     тур -> достопримечательность -> тур -> достопримечательность -> ...
     """
     image_url = serializers.SerializerMethodField()
@@ -213,13 +209,11 @@ class TourDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Tour
-        fields = [
-            "id", "title", "description", "tour_type", "tour_type_display",
-            "season", "season_display", "duration_days", "difficulty",
-            "price", "currency", "max_group_size", "included", "not_included",
-            "categories", "images", "itinerary_days", "faqs", "extra_services",
-            "route_points", "price_tiers", "attractions", "upcoming_dates",
-        ]
+        fields = ["id", "title", "description", "tour_type", "tour_type_display",
+                  "season", "season_display", "duration_days", "difficulty",
+                  "price", "currency", "max_group_size", "included", "not_included",
+                  "categories", "images", "itinerary_days", "faqs", "extra_services",
+                  "route_points", "price_tiers", "attractions", "upcoming_dates"]
 
     def get_tour_type_display(self, obj): return get_tour_type_display(obj.tour_type)
     def get_season_display(self, obj): return get_season_display(obj.season)
@@ -251,10 +245,8 @@ class CountryDetailSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Country
-        fields = [
-            "id", "country_name", "country_image", "country_image_url", "hero_description",
-            "symbol_image", "symbol_image_url", "cities", "tours",
-        ]
+        fields = ["id", "country_name", "country_image", "country_image_url", "hero_description",
+                  "symbol_image", "symbol_image_url", "cities", "tours"]
 
     def get_country_image_url(self, obj): return _file_url(obj, "country_image", self.context.get("request"))
     def get_symbol_image_url(self, obj): return _file_url(obj, "symbol_image", self.context.get("request"))
@@ -289,16 +281,12 @@ class BookingCreateSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Booking
-        fields = [
-            "id", "tour", "tour_date", "preferred_start_date", "preferred_end_date",
-            "customer_name", "customer_contact", "adults", "children", "comment",
-            "number_of_people", "price_per_person", "total_price", "prepayment_amount",
-            "currency", "payment", "status", "created_at",
-        ]
-        read_only_fields = [
-            "id", "number_of_people", "price_per_person", "total_price",
-            "prepayment_amount", "currency", "payment", "status", "created_at",
-        ]
+        fields = ["id", "tour", "tour_date", "preferred_start_date", "preferred_end_date",
+                  "customer_name", "customer_contact", "adults", "children", "comment",
+                  "number_of_people", "price_per_person", "total_price", "prepayment_amount",
+                  "currency", "payment", "status", "created_at"]
+        read_only_fields = ["id", "number_of_people", "price_per_person", "total_price",
+                            "prepayment_amount", "currency", "payment", "status", "created_at"]
 
     def validate(self, attrs):
         tour = attrs["tour"]

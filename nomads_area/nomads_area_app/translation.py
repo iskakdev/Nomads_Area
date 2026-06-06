@@ -1,9 +1,7 @@
 from modeltranslation.translator import TranslationOptions, register
-from .models import (
-    Attraction, City, Country, ExtraService, FAQ, ItineraryDay,
-    QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory,
-    TourRoutePoint, TransferRoute
-)
+from .models import (Attraction, City, Country, ExtraService, FAQ, ItineraryDay,
+                     QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory,
+                     TourRoutePoint, TransferRoute)
 
 @register(SiteSettings)
 class SiteSettingsTranslationOptions(TranslationOptions): fields = ("about_text", "privacy_policy")

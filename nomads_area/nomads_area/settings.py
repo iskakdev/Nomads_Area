@@ -28,7 +28,6 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "nomads_area_app",
     "rest_framework",
-    "phonenumber_field",
     "django_filters",
     "drf_spectacular",
     "corsheaders",
