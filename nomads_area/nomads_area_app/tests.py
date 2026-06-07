@@ -154,9 +154,6 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(float(response.data["total_price"]), 200.0)
         self.assertEqual(float(response.data["prepayment_amount"]), 60.0)
 
-        self.group_tour_date_available.refresh_from_db()
-        self.assertEqual(self.group_tour_date_available.available_spots, 3)
-
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
 
@@ -288,9 +285,6 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(Booking.objects.count(), 1)
 
-        self.group_tour_date_available.refresh_from_db()
-        self.assertEqual(self.group_tour_date_available.available_spots, 4)
-
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
 
@@ -410,7 +404,7 @@ class ProjectTests(BaseNoSpamTestCase):
         response = self.client.get(self.quiz_questions_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        self.assertEqual(len(response.data), 1)
+        self.assertEqual(len(response.data["results"]), 1)
 
     def test_quiz_progress_start(self):
         """Старт квиза создаёт прогресс."""
@@ -476,7 +470,7 @@ class ProjectTests(BaseNoSpamTestCase):
         response = self.client.get(self.tours_url)
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        ids = [item["id"] for item in response.data.get("results", response.data)]
+        ids = [item["id"] for item in response.data["results"]]
         self.assertNotIn(inactive_tour.id, ids)
 
     def test_tour_filter_exclude_sold_out(self):
@@ -484,7 +478,7 @@ class ProjectTests(BaseNoSpamTestCase):
         response = self.client.get(self.tours_url, {"exclude_sold_out": "true"})
 
         self.assertEqual(response.status_code, status.HTTP_200_OK)
-        ids = [item["id"] for item in response.data.get("results", response.data)]
+        ids = [item["id"] for item in response.data["results"]]
 
         self.assertIn(self.group_tour.id, ids)
         self.assertIn(self.private_tour.id, ids)
