@@ -19,9 +19,9 @@ def send_booking_notification(booking):
         f"<b>Статус:</b> {clean(booking.status)}"
     )
     if booking.tour_date:
-        text += f"\n<b>Дата:</b> {booking.tour_date.start_date} - {booking.tour_date.end_date}"
+        text += f"\n<b>Дата:</b> {booking.tour_date.start_date.strftime('%d.%m.%Y')} - {booking.tour_date.end_date.strftime('%d.%m.%Y')}"
     if booking.preferred_start_date and booking.preferred_end_date:
-        text += f"\n<b>Желаемые даты:</b> {booking.preferred_start_date} - {booking.preferred_end_date}"
+        text += f"\n<b>Желаемые даты:</b> {booking.preferred_start_date.strftime('%d.%m.%Y')} - {booking.preferred_end_date.strftime('%d.%m.%Y')}"
     if booking.comment:
         text += f"\n<b>Комментарий:</b> {clean(booking.comment)}"
 
