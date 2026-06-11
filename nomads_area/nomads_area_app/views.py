@@ -1,6 +1,8 @@
 import logging
 from datetime import date
 from django.db import transaction
+import requests
+from django.conf import settings
 from django.db.models import Count, Prefetch, Q
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django_filters.rest_framework import DjangoFilterBackend
@@ -227,3 +229,43 @@ class ContactRequestCreateView(generics.CreateAPIView):
         instance = serializer.save()
         if not getattr(serializer, "is_duplicate", False):
             transaction.on_commit(lambda: send_contact_notification(instance))
+
+
+class TripAdvisorReviewsView(APIView):
+    permission_classes = [AllowAny]
+
+    LOCATION_ID = "27931796"
+    TA_API_URL = "https://api.content.tripadvisor.com/api/v1/location/{location_id}/{endpoint}"
+
+    def get(self, request, *args, **kwargs):
+        api_key = settings.TRIPADVISOR_API_KEY
+        language = request.GET.get("language", "en")
+
+        # Запрашиваем детали локации и отзывы параллельно
+        try:
+            reviews_resp = requests.get(
+                self.TA_API_URL.format(location_id=self.LOCATION_ID, endpoint="reviews"),
+                params={"language": language, "key": api_key},
+                timeout=10,
+            )
+            reviews_resp.raise_for_status()
+
+            details_resp = requests.get(
+                self.TA_API_URL.format(location_id=self.LOCATION_ID, endpoint="details"),
+                params={"language": language, "currency": "USD", "key": api_key},
+                timeout=10,
+            )
+            details_resp.raise_for_status()
+
+        except requests.Timeout:
+            return Response({"error": "TripAdvisor timeout"}, status=504)
+        except requests.RequestException as e:
+            return Response({"error": str(e)}, status=502)
+
+        details = details_resp.json()
+
+        return Response({
+            "rating": details.get("rating"),
+            "num_reviews": details.get("num_reviews"),
+            "reviews": reviews_resp.json().get("data", []),
+        })

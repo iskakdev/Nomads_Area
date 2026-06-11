@@ -42,8 +42,7 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
                   "instagram_url", "facebook_url", "youtube_url", "tiktok_url", "tripadvisor_url",
                   "about_text", "about_video_url",
                   "years_experience", "tourists_count", "routes_count",
-                  "reviews_enabled", "elfsight_google_reviews_app_id", "tripadvisor_widget_code",
-                  "privacy_policy"]
+                  "reviews_enabled", "elfsight_google_reviews_app_id", "privacy_policy"]
 
 
 class TeamMemberSerializer(serializers.ModelSerializer):

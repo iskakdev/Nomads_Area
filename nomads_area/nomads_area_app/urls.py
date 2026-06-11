@@ -4,7 +4,7 @@ from .views import (AttractionViewSet, BookingCreateView, CityViewSet, ContactRe
                     CountryViewSet, FinikPayWebhookView, QuizLeadCreateView,
                     QuizProgressStartView, QuizProgressUpdateView, QuizQuestionListView,
                     SiteSettingsView, TeamMemberListView, TourCategoryViewSet, TourViewSet,
-                    TransferRouteListView, TransportRequestCreateView)
+                    TransferRouteListView, TransportRequestCreateView, TripAdvisorReviewsView)
 
 router = DefaultRouter()
 router.register(r"countries", CountryViewSet, basename="countries")
@@ -26,4 +26,5 @@ urlpatterns = [
     path("transfer-routes/", TransferRouteListView.as_view(), name="transfer-routes"),
     path("transport-requests/", TransportRequestCreateView.as_view(), name="transport-request-create"),
     path("contact/", ContactRequestCreateView.as_view(), name="contact-request"),
+    path("tripadvisor-reviews/", TripAdvisorReviewsView.as_view(), name="tripadvisor-reviews"),
 ]

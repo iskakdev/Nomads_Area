@@ -22,7 +22,6 @@ class SiteSettings(models.Model):
     routes_count = models.PositiveSmallIntegerField(default=40, verbose_name="Количество маршрутов")
     reviews_enabled = models.BooleanField(default=False, verbose_name="Виджеты отзывов включены")
     elfsight_google_reviews_app_id = models.CharField(max_length=128, blank=True, verbose_name="Elfsight Google Reviews App ID")
-    tripadvisor_widget_code = models.TextField(blank=True, verbose_name="TripAdvisor Widget Code")
     privacy_policy = models.TextField(blank=True, verbose_name="Политика конфиденциальности")
 
     class Meta:
