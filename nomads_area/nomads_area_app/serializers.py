@@ -13,6 +13,40 @@ from .services import (create_booking_with_payment_service, create_contact_reque
 def is_english():
     return (get_language() or "ru").startswith("en")
 
+def get_request_language(context=None):
+    request = (context or {}).get("request")
+    if request:
+        parts = request.path_info.strip("/").split("/")
+        if len(parts) >= 2 and parts[0] == "api":
+            return parts[1].split("-")[0]
+
+    return (get_language() or "ru").split("-")[0]
+
+
+def localized_value(obj, field, lang="ru", default_lang="ru"):
+    for code in [lang, "en", default_lang]:
+        value = getattr(obj, f"{field}_{code}", None)
+        if value:
+            return value
+
+    return getattr(obj, field, "")
+
+
+class LocalizedModelSerializer(serializers.ModelSerializer):
+    localized_fields = ()
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        lang = get_request_language(self.context)
+
+        for field in self.localized_fields:
+            if field in data:
+                data[field] = localized_value(instance, field, lang)
+
+        return data
+
+
+
 
 def _file_url(instance, field, request=None):
     f = getattr(instance, field, None)
@@ -35,7 +69,8 @@ def get_vehicle_cat_display(v):
     return _disp(v, {"sedan": "Sedan", "minivan": "Minivan", "minibus": "Minibus"}, {"sedan": "Седан", "minivan": "Минивэн", "minibus": "Миниавтобус"})
 
 
-class SiteSettingsSerializer(serializers.ModelSerializer):
+class SiteSettingsSerializer(LocalizedModelSerializer):
+    localized_fields = ("about_text", "privacy_policy")
     class Meta:
         model = SiteSettings
         fields = ["id", "phone", "whatsapp", "email",
@@ -45,7 +80,8 @@ class SiteSettingsSerializer(serializers.ModelSerializer):
                   "reviews_enabled", "elfsight_google_reviews_app_id", "privacy_policy"]
 
 
-class TeamMemberSerializer(serializers.ModelSerializer):
+class TeamMemberSerializer(LocalizedModelSerializer):
+    localized_fields = ("full_name", "position", "description")
     photo_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -57,7 +93,8 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         return _file_url(obj, "photo", self.context.get("request"))
 
 
-class CountryListSerializer(serializers.ModelSerializer):
+class CountryListSerializer(LocalizedModelSerializer):
+    localized_fields = ("country_name",)
     country_image_url = serializers.SerializerMethodField()
     symbol_image_url = serializers.SerializerMethodField()
 
@@ -69,7 +106,8 @@ class CountryListSerializer(serializers.ModelSerializer):
     def get_symbol_image_url(self, obj): return _file_url(obj, "symbol_image", self.context.get("request"))
 
 
-class CityListSerializer(serializers.ModelSerializer):
+class CityListSerializer(LocalizedModelSerializer):
+    localized_fields = ("city_name", "description")
     city_image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -79,7 +117,8 @@ class CityListSerializer(serializers.ModelSerializer):
     def get_city_image_url(self, obj): return _file_url(obj, "city_image", self.context.get("request"))
 
 
-class TourCategoryListSerializer(serializers.ModelSerializer):
+class TourCategoryListSerializer(LocalizedModelSerializer):
+    localized_fields = ("name", "description")
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -89,26 +128,27 @@ class TourCategoryListSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
 
-class TourCategoryShortSerializer(serializers.ModelSerializer):
+class TourCategoryShortSerializer(LocalizedModelSerializer):
+    localized_fields = ("name",)
     """Короткий сериализатор категории — только для вложения в тур."""
     class Meta:
         model = TourCategory
         fields = ["id", "name"]
 
 
-class TourDateUpcomingSerializer(serializers.ModelSerializer):
+class TourDateUpcomingSerializer(LocalizedModelSerializer):
     class Meta:
         model = TourDate
         fields = ["id", "start_date", "end_date", "available_spots"]
 
 
-class TourPriceTierSerializer(serializers.ModelSerializer):
+class TourPriceTierSerializer(LocalizedModelSerializer):
     class Meta:
         model = TourPriceTier
         fields = ["id", "min_people", "max_people", "price_per_person"]
 
 
-class TourImageSerializer(serializers.ModelSerializer):
+class TourImageSerializer(LocalizedModelSerializer):
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -125,7 +165,8 @@ def get_display_price(obj):
     return obj.price
 
 
-class TourListSerializer(serializers.ModelSerializer):
+class TourListSerializer(LocalizedModelSerializer):
+    localized_fields = ("title",)
     price = serializers.SerializerMethodField()
     cover_image = serializers.SerializerMethodField()
     tour_type_display = serializers.SerializerMethodField()
@@ -156,19 +197,21 @@ class TourListSerializer(serializers.ModelSerializer):
         return TourDateUpcomingSerializer(dates[:3], many=True).data
 
 
-class FAQSerializer(serializers.ModelSerializer):
+class FAQSerializer(LocalizedModelSerializer):
+    localized_fields = ("question", "answer")
     class Meta:
         model = FAQ
         fields = ["question", "answer"]
 
 
-class TourRoutePointSerializer(serializers.ModelSerializer):
+class TourRoutePointSerializer(LocalizedModelSerializer):
     class Meta:
         model = TourRoutePoint
         fields = ["title", "latitude", "longitude"]
 
 
-class ExtraServiceSerializer(serializers.ModelSerializer):
+class ExtraServiceSerializer(LocalizedModelSerializer):
+    localized_fields = ("title", "description", "price_label")
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -178,7 +221,8 @@ class ExtraServiceSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
 
-class ItineraryDaySerializer(serializers.ModelSerializer):
+class ItineraryDaySerializer(LocalizedModelSerializer):
+    localized_fields = ("title", "description", "altitude", "walking_distance", "driving_distance", "accommodation")
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -188,7 +232,8 @@ class ItineraryDaySerializer(serializers.ModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
 
-class AttractionInTourSerializer(serializers.ModelSerializer):
+class AttractionInTourSerializer(LocalizedModelSerializer):
+    localized_fields = ("name", "description")
     """
     Лёгкая версия достопримечательности для вложения в тур.
     Не содержит список туров - иначе была бы бесконечная рекурсия:
@@ -204,7 +249,8 @@ class AttractionInTourSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
 
-class TourDetailSerializer(serializers.ModelSerializer):
+class TourDetailSerializer(LocalizedModelSerializer):
+    localized_fields = ("title", "description", "included", "not_included")
     price = serializers.SerializerMethodField()
     images = TourImageSerializer(many=True, read_only=True)
     itinerary_days = ItineraryDaySerializer(many=True, read_only=True)
@@ -239,7 +285,8 @@ class TourDetailSerializer(serializers.ModelSerializer):
         return TourDateUpcomingSerializer(dates, many=True).data
 
 
-class TourCategoryDetailSerializer(serializers.ModelSerializer):
+class TourCategoryDetailSerializer(LocalizedModelSerializer):
+    localized_fields = ("name", "description")
     image_url = serializers.SerializerMethodField()
     tours = serializers.SerializerMethodField()
 
@@ -251,7 +298,8 @@ class TourCategoryDetailSerializer(serializers.ModelSerializer):
     def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
 
 
-class CountryDetailSerializer(serializers.ModelSerializer):
+class CountryDetailSerializer(LocalizedModelSerializer):
+    localized_fields = ("country_name", "hero_description")
     country_image_url = serializers.SerializerMethodField()
     symbol_image_url = serializers.SerializerMethodField()
     cities = CityListSerializer(many=True, read_only=True)
@@ -267,7 +315,8 @@ class CountryDetailSerializer(serializers.ModelSerializer):
     def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
 
 
-class CityDetailSerializer(serializers.ModelSerializer):
+class CityDetailSerializer(LocalizedModelSerializer):
+    localized_fields = ("city_name", "description")
     city_image_url = serializers.SerializerMethodField()
     tours = serializers.SerializerMethodField()
 
@@ -279,14 +328,14 @@ class CityDetailSerializer(serializers.ModelSerializer):
     def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
 
 
-class PaymentSerializer(serializers.ModelSerializer):
+class PaymentSerializer(LocalizedModelSerializer):
     class Meta:
         model = Payment
         fields = ["id", "provider", "amount", "currency", "payment_url", "status", "provider_payment_id", "paid_at", "created_at"]
         read_only_fields = fields
 
 
-class BookingCreateSerializer(serializers.ModelSerializer):
+class BookingCreateSerializer(LocalizedModelSerializer):
     payment = serializers.SerializerMethodField()
     number_of_people = serializers.SerializerMethodField()
     price_per_person = serializers.SerializerMethodField()
@@ -353,7 +402,7 @@ class BookingCreateSerializer(serializers.ModelSerializer):
     def get_prepayment_amount(self, obj): return obj.prepayment_amount
 
 
-class QuizQuestionSerializer(serializers.ModelSerializer):
+class QuizQuestionSerializer(LocalizedModelSerializer):
     options = serializers.SerializerMethodField()
 
     class Meta:
@@ -364,7 +413,7 @@ class QuizQuestionSerializer(serializers.ModelSerializer):
         return [{"id": o.id, "option_text": o.option_text, "next_question": o.next_question_id} for o in obj.options.all()]
 
 
-class QuizProgressSerializer(serializers.ModelSerializer):
+class QuizProgressSerializer(LocalizedModelSerializer):
     class Meta:
         model = QuizProgress
         fields = ["session_key", "answers_data", "current_question_index", "is_completed", "updated_at"]
@@ -377,7 +426,7 @@ class QuizProgressUpdateSerializer(serializers.Serializer):
     text_answer = serializers.CharField(required=False, allow_blank=True)
 
 
-class QuizLeadSerializer(serializers.ModelSerializer):
+class QuizLeadSerializer(LocalizedModelSerializer):
     answers = serializers.JSONField(write_only=True, required=False)
 
     class Meta:
@@ -395,7 +444,7 @@ class QuizLeadSerializer(serializers.ModelSerializer):
         return i
 
 
-class VehicleTypeSerializer(serializers.ModelSerializer):
+class VehicleTypeSerializer(LocalizedModelSerializer):
     category_display = serializers.SerializerMethodField()
 
     class Meta:
@@ -406,7 +455,7 @@ class VehicleTypeSerializer(serializers.ModelSerializer):
         return get_vehicle_cat_display(obj.category)
 
 
-class TransferRouteSerializer(serializers.ModelSerializer):
+class TransferRouteSerializer(LocalizedModelSerializer):
     vehicles = VehicleTypeSerializer(many=True, read_only=True)
 
     class Meta:
@@ -414,7 +463,7 @@ class TransferRouteSerializer(serializers.ModelSerializer):
         fields = ["id", "departure_point", "arrival_point", "vehicles"]
 
 
-class TransportRequestCreateSerializer(serializers.ModelSerializer):
+class TransportRequestCreateSerializer(LocalizedModelSerializer):
     passengers = serializers.IntegerField(write_only=True, default=1)
     bags = serializers.IntegerField(write_only=True, default=0)
 
@@ -440,7 +489,7 @@ class TransportRequestCreateSerializer(serializers.ModelSerializer):
         return i
 
 
-class ContactRequestSerializer(serializers.ModelSerializer):
+class ContactRequestSerializer(LocalizedModelSerializer):
     class Meta:
         model = ContactRequest
         fields = ["id", "subject", "name", "phone_or_email", "message", "source", "status", "created_at"]
@@ -452,7 +501,7 @@ class ContactRequestSerializer(serializers.ModelSerializer):
         return i
 
 
-class AttractionImageSerializer(serializers.ModelSerializer):
+class AttractionImageSerializer(LocalizedModelSerializer):
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -462,7 +511,8 @@ class AttractionImageSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
 
-class AttractionListSerializer(serializers.ModelSerializer):
+class AttractionListSerializer(LocalizedModelSerializer):
+    localized_fields = ("name", "description")
     image_url = serializers.SerializerMethodField()
 
     class Meta:
@@ -472,7 +522,8 @@ class AttractionListSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
 
-class AttractionDetailSerializer(serializers.ModelSerializer):
+class AttractionDetailSerializer(LocalizedModelSerializer):
+    localized_fields = ("name", "description")
     image_url = serializers.SerializerMethodField()
     images = AttractionImageSerializer(many=True, read_only=True)
     tours = TourListSerializer(many=True, read_only=True)

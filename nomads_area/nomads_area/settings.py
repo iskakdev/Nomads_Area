@@ -38,6 +38,7 @@ MIDDLEWARE = [
     "whitenoise.middleware.WhiteNoiseMiddleware",
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "nomads_area_app.middleware.APILanguageMiddleware",
     "nomads_area.middleware.URLLanguageMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
