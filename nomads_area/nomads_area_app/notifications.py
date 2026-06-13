@@ -47,28 +47,121 @@ def send_payment_success_notification(payment):
 
 def send_quiz_notification(lead):
     def quiz_label(key):
-        k = str(key).lower()
+        k = str(key).strip().lower()
 
-        if "формат путешествия" in k or "формат тура" in k:
-            return "Формат"
-        if "регион" in k or "страна" in k or "куда" in k:
-            return "Регион"
-        if "бюджет" in k:
-            return "Бюджет"
-        if "сколько дней" in k or "дней" in k:
-            return "Длительность"
-        if "вид активности" in k or "активности" in k:
-            return "Интерес"
-        if "когда" in k or "планируете" in k:
-            return "Срок поездки"
-        if "человек" in k or "сколько человек" in k:
-            return "Людей"
-        if "пожелания" in k:
-            return "Пожелания"
-        if "комфортность" in k or "проживания" in k:
-            return "Комфорт"
-        if "рекомендации" in k or "получить" in k:
-            return "Связь"
+        # Format
+        if (
+            "формат" in k
+            or "type of travel" in k
+            or "travel do you prefer" in k
+            or "tipo de viaje" in k
+            or "type de voyage" in k
+            or "reiseart" in k
+            or "art von reise" in k
+        ):
+            return "Format"
+
+        # Region
+        if (
+            "регион" in k
+            or "страна" in k
+            or "куда" in k
+            or "region" in k
+            or "central asia" in k
+            or "región" in k
+            or "région" in k
+            or "region zentralasiens" in k
+        ):
+            return "Region"
+
+        # Budget
+        if (
+            "бюджет" in k
+            or "budget" in k
+            or "presupuesto" in k
+            or "budget par personne" in k
+        ):
+            return "Budget"
+
+        # Duration
+        if (
+            "сколько дней" in k
+            or "дней" in k
+            or "how many days" in k
+            or "days do you have" in k
+            or "cuántos días" in k
+            or "combien de jours" in k
+            or "wie viele tage" in k
+        ):
+            return "Duration"
+
+        # Activity / interest
+        if (
+            "актив" in k
+            or "интерес" in k
+            or "activity" in k
+            or "actividad" in k
+            or "activité" in k
+            or "aktivität" in k
+        ):
+            return "Activity"
+
+        # Travel date
+        if (
+            "когда" in k
+            or "планируете" in k
+            or "when are you planning" in k
+            or "planning to travel" in k
+            or "cuándo" in k
+            or "quand" in k
+            or "wann" in k
+        ):
+            return "Travel date"
+
+        # People
+        if (
+            "человек" in k
+            or "people" in k
+            or "how many people" in k
+            or "personas" in k
+            or "personnes" in k
+            or "personen" in k
+        ):
+            return "People"
+
+        # Requests
+        if (
+            "пожелания" in k
+            or "special requests" in k
+            or "solicitudes especiales" in k
+            or "demandes spéciales" in k
+            or "besondere wünsche" in k
+        ):
+            return "Requests"
+
+        # Comfort
+        if (
+            "комфорт" in k
+            or "прожив" in k
+            or "accommodation comfort" in k
+            or "comfort" in k
+            or "alojamiento" in k
+            or "hébergement" in k
+            or "unterkunft" in k
+        ):
+            return "Comfort"
+
+        # Contact
+        if (
+            "рекомендации" in k
+            or "получить" in k
+            or "receive recommendations" in k
+            or "recommendations" in k
+            or "recibir recomendaciones" in k
+            or "recevoir" in k
+            or "empfehlungen" in k
+        ):
+            return "Contact"
 
         return str(key)
 
