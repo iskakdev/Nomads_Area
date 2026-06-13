@@ -13,7 +13,9 @@ def send_booking_notification(booking):
         f"<b>Тип тура:</b> {clean(booking.tour.get_tour_type_display())}\n"
         f"<b>Клиент:</b> {clean(booking.customer_name)}\n"
         f"<b>Контакт:</b> {clean(booking.customer_contact)}\n"
-        f"<b>Людей:</b> {booking.number_of_people}\n"
+        f"<b>Взрослые:</b> {booking.adults}\n"
+        f"<b>Дети:</b> {booking.children}\n"
+        f"<b>Всего людей:</b> {booking.number_of_people}\n"
         f"<b>Сумма:</b> {booking.total_price} {booking.currency}\n"
         f"<b>Предоплата:</b> {booking.prepayment_amount} {booking.currency}\n"
         f"<b>Статус:</b> {clean(booking.status)}"
@@ -44,9 +46,53 @@ def send_payment_success_notification(payment):
 
 
 def send_quiz_notification(lead):
-    text = f"📝 <b>Лид из квиза #{lead.id}</b>\n\n<b>Имя:</b> {clean(lead.customer_name)}\n<b>Контакт:</b> {clean(lead.customer_contact)}"
+    def quiz_label(key):
+        k = str(key).lower()
+
+        if "формат путешествия" in k or "формат тура" in k:
+            return "Формат"
+        if "регион" in k or "страна" in k or "куда" in k:
+            return "Регион"
+        if "бюджет" in k:
+            return "Бюджет"
+        if "сколько дней" in k or "дней" in k:
+            return "Длительность"
+        if "вид активности" in k or "активности" in k:
+            return "Интерес"
+        if "когда" in k or "планируете" in k:
+            return "Срок поездки"
+        if "человек" in k or "сколько человек" in k:
+            return "Людей"
+        if "пожелания" in k:
+            return "Пожелания"
+        if "комфортность" in k or "проживания" in k:
+            return "Комфорт"
+        if "рекомендации" in k or "получить" in k:
+            return "Связь"
+
+        return str(key)
+
+    answers = lead.answers_data or {}
+
+    text = (
+        f"📝 <b>Лид из квиза #{lead.id}</b>\n\n"
+        f"👤 <b>Клиент</b>\n"
+        f"<b>Имя:</b> {clean(lead.customer_name) if lead.customer_name else 'Не указано'}\n"
+        f"<b>Контакт:</b> {clean(lead.customer_contact)}"
+    )
+
+    if answers:
+        text += "\n\n🧭 <b>Запрос</b>"
+        for key, value in answers.items():
+            label = quiz_label(key)
+            text += f"\n<b>{clean(label)}:</b> {clean(str(value))}"
+    else:
+        text += "\n\n🧭 <b>Запрос:</b> Не указан"
+
     send_telegram_task.delay(text)
-    send_email_task.delay(f"Лид квиза #{lead.id}", f"Имя: {lead.customer_name}\nКонтакт: {lead.customer_contact}\nОтветы: {lead.answers_data}")
+
+    email_text = text.replace("<b>", "").replace("</b>", "")
+    send_email_task.delay(f"Лид квиза #{lead.id}", email_text)
 
 
 def send_transport_notification(tr):

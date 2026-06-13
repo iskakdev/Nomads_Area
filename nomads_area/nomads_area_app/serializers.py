@@ -118,7 +118,15 @@ class TourImageSerializer(serializers.ModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
 
+def get_display_price(obj):
+    if obj.tour_type == Tour.TOUR_TYPE_PRIVATE:
+        tier = obj.price_tiers.order_by("price_per_person").first()
+        return tier.price_per_person if tier else obj.price
+    return obj.price
+
+
 class TourListSerializer(serializers.ModelSerializer):
+    price = serializers.SerializerMethodField()
     cover_image = serializers.SerializerMethodField()
     tour_type_display = serializers.SerializerMethodField()
     season_display = serializers.SerializerMethodField()
@@ -134,6 +142,9 @@ class TourListSerializer(serializers.ModelSerializer):
     def get_cover_image(self, obj):
         imgs = obj.images.all()
         return _file_url(imgs[0], "image", self.context.get("request")) if imgs else None
+
+    def get_price(self, obj):
+        return get_display_price(obj)
 
     def get_tour_type_display(self, obj): return get_tour_type_display(obj.tour_type)
     def get_season_display(self, obj): return get_season_display(obj.season)
@@ -194,6 +205,7 @@ class AttractionInTourSerializer(serializers.ModelSerializer):
 
 
 class TourDetailSerializer(serializers.ModelSerializer):
+    price = serializers.SerializerMethodField()
     images = TourImageSerializer(many=True, read_only=True)
     itinerary_days = ItineraryDaySerializer(many=True, read_only=True)
     faqs = FAQSerializer(many=True, read_only=True)
@@ -216,6 +228,9 @@ class TourDetailSerializer(serializers.ModelSerializer):
 
     def get_tour_type_display(self, obj): return get_tour_type_display(obj.tour_type)
     def get_season_display(self, obj): return get_season_display(obj.season)
+
+    def get_price(self, obj):
+        return get_display_price(obj)
 
     def get_upcoming_dates(self, obj):
         dates = getattr(obj, "prefetched_dates", None)
@@ -363,12 +378,18 @@ class QuizProgressUpdateSerializer(serializers.Serializer):
 
 
 class QuizLeadSerializer(serializers.ModelSerializer):
+    answers = serializers.JSONField(write_only=True, required=False)
+
     class Meta:
         model = QuizLead
-        fields = ["id", "customer_name", "customer_contact", "answers_data", "status", "created_at"]
+        fields = ["id", "customer_name", "customer_contact", "answers", "answers_data", "status", "created_at"]
         read_only_fields = ["id", "status", "created_at"]
 
     def create(self, validated_data):
+        answers = validated_data.pop("answers", None)
+        if answers is not None and not validated_data.get("answers_data"):
+            validated_data["answers_data"] = answers
+
         i, is_dup = create_quiz_lead_service(validated_data)
         self.is_duplicate = is_dup
         return i
