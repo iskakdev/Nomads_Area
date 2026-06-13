@@ -127,11 +127,14 @@ MEDIA_URL = "/media/"
 LANGUAGES = (
     ("ru", "Russian"),
     ("en", "English"),
+    ("es", "Spanish"),
+    ("fr", "French"),
+    ("de", "German"),
 )
 
 MODELTRANSLATION_DEFAULT_LANGUAGE = "ru"
 
-MODELTRANSLATION_LANGUAGES = ("ru", "en")
+MODELTRANSLATION_LANGUAGES = ("ru", "en", "es", "fr", "de")
 
 
 # Default primary key field type
