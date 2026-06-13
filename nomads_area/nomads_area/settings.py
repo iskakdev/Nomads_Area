@@ -13,7 +13,7 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-me-secret-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = [host.strip() for host in os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",") if host.strip()]
+ALLOWED_HOSTS = ["nomadsarea.com", "www.nomadsarea.com", "161.97.68.234", "localhost", "127.0.0.1"]
 
 
 # Application definition
@@ -221,3 +221,6 @@ CELERY_TASK_TIME_LIMIT = 120
 
 
 TRIPADVISOR_API_KEY = os.getenv("TRIPADVISOR_API_KEY", "")
+
+TRIPADVISOR_URL = os.getenv("TRIPADVISOR_URL", "https://www.tripadvisor.com/")
+TRIPADVISOR_LOCATION_ID = os.getenv("TRIPADVISOR_LOCATION_ID", "")

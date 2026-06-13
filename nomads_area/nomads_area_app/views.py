@@ -234,38 +234,80 @@ class ContactRequestCreateView(generics.CreateAPIView):
 class TripAdvisorReviewsView(APIView):
     permission_classes = [AllowAny]
 
-    LOCATION_ID = "27931796"
     TA_API_URL = "https://api.content.tripadvisor.com/api/v1/location/{location_id}/{endpoint}"
 
     def get(self, request, *args, **kwargs):
-        api_key = settings.TRIPADVISOR_API_KEY
+        api_key = getattr(settings, "TRIPADVISOR_API_KEY", None)
+        location_id = getattr(settings, "TRIPADVISOR_LOCATION_ID", None)
+        fallback_url = getattr(settings, "TRIPADVISOR_URL", "https://www.tripadvisor.com/")
         language = request.GET.get("language", "en")
 
-        # Запрашиваем детали локации и отзывы параллельно
-        try:
-            reviews_resp = requests.get(
-                self.TA_API_URL.format(location_id=self.LOCATION_ID, endpoint="reviews"),
-                params={"language": language, "key": api_key},
-                timeout=10,
-            )
-            reviews_resp.raise_for_status()
+        if not api_key or not location_id:
+            return Response({
+                "source": "tripadvisor",
+                "rating": "5.0",
+                "num_reviews": "21",
+                "web_url": fallback_url,
+                "write_review_url": fallback_url,
+                "reviews": [],
+                "error": "TripAdvisor API key or location ID is missing",
+            }, status=200)
 
+        try:
             details_resp = requests.get(
-                self.TA_API_URL.format(location_id=self.LOCATION_ID, endpoint="details"),
+                self.TA_API_URL.format(location_id=location_id, endpoint="details"),
                 params={"language": language, "currency": "USD", "key": api_key},
-                timeout=10,
+                timeout=15,
             )
             details_resp.raise_for_status()
+            details = details_resp.json()
+
+            reviews = []
+            reviews_error = None
+
+            try:
+                reviews_resp = requests.get(
+                    self.TA_API_URL.format(location_id=location_id, endpoint="reviews"),
+                    params={"language": language, "key": api_key},
+                    timeout=15,
+                )
+                reviews_resp.raise_for_status()
+                reviews_data = reviews_resp.json()
+
+                for item in reviews_data.get("data", [])[:5]:
+                    user = item.get("user") or {}
+                    avatar = user.get("avatar") if isinstance(user.get("avatar"), dict) else {}
+
+                    reviews.append({
+                        "id": item.get("id"),
+                        "author": user.get("username") or user.get("name") or "Tripadvisor traveler",
+                        "avatar": avatar.get("thumbnail") or avatar.get("small") or None,
+                        "rating": item.get("rating", 5),
+                        "title": item.get("title") or "",
+                        "text": item.get("text") or "",
+                        "url": item.get("url") or details.get("web_url") or fallback_url,
+                        "published_date": item.get("published_date"),
+                        "rating_image_url": item.get("rating_image_url"),
+                    })
+
+            except requests.RequestException as e:
+                reviews_error = str(e)
+
+            return Response({
+                "source": "tripadvisor",
+                "rating": details.get("rating") or "5.0",
+                "rating_image_url": details.get("rating_image_url"),
+                "num_reviews": details.get("num_reviews") or len(reviews),
+                "review_rating_count": details.get("review_rating_count", {}),
+                "ranking": details.get("ranking_data", {}),
+                "web_url": details.get("web_url") or fallback_url,
+                "write_review_url": details.get("write_review") or fallback_url,
+                "reviews": reviews,
+                "reviews_error": reviews_error,
+            }, status=200)
 
         except requests.Timeout:
             return Response({"error": "TripAdvisor timeout"}, status=504)
         except requests.RequestException as e:
             return Response({"error": str(e)}, status=502)
 
-        details = details_resp.json()
-
-        return Response({
-            "rating": details.get("rating"),
-            "num_reviews": details.get("num_reviews"),
-            "reviews": reviews_resp.json().get("data", []),
-        })
