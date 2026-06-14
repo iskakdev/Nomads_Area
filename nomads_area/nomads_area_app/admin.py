@@ -222,3 +222,60 @@ class ContactRequestAdmin(admin.ModelAdmin):
     list_display = ["id", "name", "phone_or_email", "subject", "source", "status", "created_at"]
     list_filter = ["status", "source", "created_at"]; search_fields = ["name", "phone_or_email", "message", "subject"]
     list_editable = ["status"]; readonly_fields = ["created_at"]
+
+
+from .models import TripAdvisorManualReview
+
+@admin.register(TripAdvisorManualReview)
+class TripAdvisorManualReviewAdmin(admin.ModelAdmin):
+    list_display = (
+        "order",
+        "author",
+        "title",
+        "rating",
+        "published_date",
+        "is_active",
+    )
+    list_display_links = (
+        "author",
+        "title",
+    )
+    list_editable = (
+        "rating",
+        "published_date",
+        "is_active",
+        "order",
+    )
+    list_filter = (
+        "is_active",
+        "rating",
+        "published_date",
+    )
+    search_fields = (
+        "author",
+        "title",
+        "text",
+        "url",
+    )
+    ordering = (
+        "order",
+        "-published_date",
+        "-id",
+    )
+    readonly_fields = (
+        "created_at",
+        "updated_at",
+    )
+    fields = (
+        "author",
+        "rating",
+        "published_date",
+        "order",
+        "is_active",
+        "title",
+        "text",
+        "avatar_url",
+        "url",
+        "created_at",
+        "updated_at",
+    )

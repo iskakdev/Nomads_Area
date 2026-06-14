@@ -564,3 +564,39 @@ class ContactRequest(models.Model):
 
     def __str__(self):
         return f"Заявка #{self.id}"
+
+
+class TripAdvisorManualReview(models.Model):
+    RATING_CHOICES = (
+        (1, "1 звезда"),
+        (2, "2 звезды"),
+        (3, "3 звезды"),
+        (4, "4 звезды"),
+        (5, "5 звёзд"),
+    )
+
+    author = models.CharField("Автор", max_length=255)
+    avatar_url = models.URLField("URL аватара", blank=True)
+    rating = models.PositiveSmallIntegerField(
+        "Рейтинг",
+        choices=RATING_CHOICES,
+        default=5,
+    )
+    title = models.CharField("Заголовок", max_length=255)
+    text = models.TextField("Текст отзыва")
+    url = models.URLField("Ссылка на оригинальный отзыв", blank=True)
+    published_date = models.DateField("Дата публикации", null=True, blank=True)
+
+    is_active = models.BooleanField("Активен", default=True)
+    order = models.PositiveIntegerField("Порядок", default=0)
+
+    created_at = models.DateTimeField("Дата создания", auto_now_add=True)
+    updated_at = models.DateTimeField("Дата обновления", auto_now=True)
+
+    class Meta:
+        ordering = ["order", "-published_date", "-id"]
+        verbose_name = "Ручной отзыв Tripadvisor"
+        verbose_name_plural = "Ручные отзывы Tripadvisor"
+
+    def __str__(self):
+        return f"{self.author} — {self.title}"

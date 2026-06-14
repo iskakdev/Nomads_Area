@@ -3,6 +3,7 @@ from datetime import date
 from django.db import transaction
 import requests
 from django.conf import settings
+from .models import TripAdvisorManualReview
 from django.db.models import Count, Prefetch, Q
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django_filters.rest_framework import DjangoFilterBackend
@@ -235,21 +236,77 @@ class TripAdvisorReviewsView(APIView):
     permission_classes = [AllowAny]
 
     TA_API_URL = "https://api.content.tripadvisor.com/api/v1/location/{location_id}/{endpoint}"
+    DEFAULT_LIMIT = 8
+
+    def _serialize_manual_review(self, review):
+        return {
+            "id": f"manual-{review.id}",
+            "source": "manual",
+            "author": review.author,
+            "avatar": review.avatar_url or None,
+            "rating": review.rating,
+            "title": review.title,
+            "text": review.text,
+            "url": review.url,
+            "published_date": review.published_date.isoformat() if review.published_date else None,
+            "rating_image_url": None,
+        }
+
+    def _append_manual_reviews(self, reviews, limit):
+        used_pairs = {
+            (
+                str(r.get("author", "")).strip().lower(),
+                str(r.get("title", "")).strip().lower(),
+            )
+            for r in reviews
+        }
+
+        manual_reviews = TripAdvisorManualReview.objects.filter(is_active=True).order_by(
+            "order", "-published_date", "-id"
+        )
+
+        for review in manual_reviews:
+            if len(reviews) >= limit:
+                break
+
+            review_pair = (
+                str(review.author).strip().lower(),
+                str(review.title).strip().lower(),
+            )
+
+            if review_pair in used_pairs:
+                continue
+
+            reviews.append(self._serialize_manual_review(review))
+            used_pairs.add(review_pair)
+
+        return reviews
 
     def get(self, request, *args, **kwargs):
         api_key = getattr(settings, "TRIPADVISOR_API_KEY", None)
         location_id = getattr(settings, "TRIPADVISOR_LOCATION_ID", None)
         fallback_url = getattr(settings, "TRIPADVISOR_URL", "https://www.tripadvisor.com/")
-        language = request.GET.get("language", "en")
+
+        try:
+            limit = int(request.GET.get("limit", self.DEFAULT_LIMIT))
+        except (TypeError, ValueError):
+            limit = self.DEFAULT_LIMIT
+
+        limit = max(1, min(limit, 20))
+
+        # Tripadvisor по ru/fr/de/es сейчас отдаёт 0 отзывов,
+        # поэтому live reviews всегда просим на английском.
+        language = request.GET.get("language", "en") or "en"
 
         if not api_key or not location_id:
+            reviews = self._append_manual_reviews([], limit)
             return Response({
                 "source": "tripadvisor",
                 "rating": "5.0",
                 "num_reviews": "21",
                 "web_url": fallback_url,
                 "write_review_url": fallback_url,
-                "reviews": [],
+                "reviews": reviews,
                 "error": "TripAdvisor API key or location ID is missing",
             }, status=200)
 
@@ -268,18 +325,19 @@ class TripAdvisorReviewsView(APIView):
             try:
                 reviews_resp = requests.get(
                     self.TA_API_URL.format(location_id=location_id, endpoint="reviews"),
-                    params={"language": language, "key": api_key},
+                    params={"language": "en", "key": api_key},
                     timeout=15,
                 )
                 reviews_resp.raise_for_status()
                 reviews_data = reviews_resp.json()
 
-                for item in reviews_data.get("data", [])[:5]:
+                for item in reviews_data.get("data", [])[:limit]:
                     user = item.get("user") or {}
                     avatar = user.get("avatar") if isinstance(user.get("avatar"), dict) else {}
 
                     reviews.append({
                         "id": item.get("id"),
+                        "source": "tripadvisor",
                         "author": user.get("username") or user.get("name") or "Tripadvisor traveler",
                         "avatar": avatar.get("thumbnail") or avatar.get("small") or None,
                         "rating": item.get("rating", 5),
@@ -292,6 +350,8 @@ class TripAdvisorReviewsView(APIView):
 
             except requests.RequestException as e:
                 reviews_error = str(e)
+
+            reviews = self._append_manual_reviews(reviews, limit)
 
             return Response({
                 "source": "tripadvisor",
@@ -307,7 +367,25 @@ class TripAdvisorReviewsView(APIView):
             }, status=200)
 
         except requests.Timeout:
-            return Response({"error": "TripAdvisor timeout"}, status=504)
-        except requests.RequestException as e:
-            return Response({"error": str(e)}, status=502)
+            reviews = self._append_manual_reviews([], limit)
+            return Response({
+                "source": "tripadvisor",
+                "rating": "5.0",
+                "num_reviews": "21",
+                "web_url": fallback_url,
+                "write_review_url": fallback_url,
+                "reviews": reviews,
+                "error": "TripAdvisor timeout",
+            }, status=200)
 
+        except requests.RequestException as e:
+            reviews = self._append_manual_reviews([], limit)
+            return Response({
+                "source": "tripadvisor",
+                "rating": "5.0",
+                "num_reviews": "21",
+                "web_url": fallback_url,
+                "write_review_url": fallback_url,
+                "reviews": reviews,
+                "error": str(e),
+            }, status=200)
