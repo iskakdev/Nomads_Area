@@ -224,10 +224,7 @@ class ContactRequestAdmin(admin.ModelAdmin):
     list_editable = ["status"]; readonly_fields = ["created_at"]
 
 
-from .models import TripAdvisorManualReview
-
-@admin.register(TripAdvisorManualReview)
-class TripAdvisorManualReviewAdmin(admin.ModelAdmin):
+class Admin(admin.ModelAdmin):
     list_display = (
         "order",
         "author",

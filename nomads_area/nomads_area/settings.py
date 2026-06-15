@@ -19,6 +19,7 @@ ALLOWED_HOSTS = ["nomadsarea.com", "www.nomadsarea.com", "161.97.68.234", "local
 # Application definition
 
 INSTALLED_APPS = [
+    'jazzmin',
     "modeltranslation",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -224,3 +225,48 @@ TRIPADVISOR_API_KEY = os.getenv("TRIPADVISOR_API_KEY", "")
 
 TRIPADVISOR_URL = os.getenv("TRIPADVISOR_URL", "https://www.tripadvisor.com/")
 TRIPADVISOR_LOCATION_ID = os.getenv("TRIPADVISOR_LOCATION_ID", "")
+
+
+JAZZMIN_SETTINGS = {
+    "site_title": "Nomads Area Admin",
+    "site_header": "Nomads Area",
+    "site_brand": "Nomads Area",
+    "welcome_sign": "Добро пожаловать в админку Nomads Area",
+    "copyright": "Nomads Area",
+    "search_model": ["nomads_area_app.Tour", "nomads_area_app.Booking"],
+    "show_sidebar": True,
+    "navigation_expanded": True,
+    "icons": {
+        "nomads_area_app.Tour": "fas fa-map-marked-alt",
+        "nomads_area_app.Booking": "fas fa-calendar-check",
+        "nomads_area_app.QuizLead": "fas fa-clipboard-list",
+        "nomads_area_app.ContactMessage": "fas fa-envelope",
+        "nomads_area_app.Country": "fas fa-globe-asia",
+        "nomads_area_app.City": "fas fa-city",
+        "auth.User": "fas fa-user",
+        "auth.Group": "fas fa-users",
+    },
+}
+
+
+
+
+
+
+
+
+JAZZMIN_UI_TWEAKS = {
+    "theme": "darkly",
+    "dark_mode_theme": "darkly",
+    "navbar": "navbar-dark navbar-dark",
+    "sidebar": "sidebar-dark-primary",
+    "accent": "accent-primary",
+    "button_classes": {
+        "primary": "btn-primary",
+        "secondary": "btn-secondary",
+        "info": "btn-info",
+        "warning": "btn-warning",
+        "danger": "btn-danger",
+        "success": "btn-success"
+    },
+}
