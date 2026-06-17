@@ -1,9 +1,21 @@
 import html
+import logging
 from .tasks import send_email_task, send_telegram_task
+
+logger = logging.getLogger(__name__)
 
 
 def clean(v):
     return html.escape(str(v)) if v is not None else ""
+
+
+def enqueue_task_safely(task, *args):
+    try:
+        return task.delay(*args)
+    except Exception as exc:
+        # Notification delivery must never break a successfully saved lead/booking.
+        logger.exception("Failed to enqueue notification task %s: %s", getattr(task, "name", task), exc)
+        return None
 
 
 def send_booking_notification(booking):
@@ -24,11 +36,18 @@ def send_booking_notification(booking):
         text += f"\n<b>Дата:</b> {booking.tour_date.start_date.strftime('%d.%m.%Y')} - {booking.tour_date.end_date.strftime('%d.%m.%Y')}"
     if booking.preferred_start_date and booking.preferred_end_date:
         text += f"\n<b>Желаемые даты:</b> {booking.preferred_start_date.strftime('%d.%m.%Y')} - {booking.preferred_end_date.strftime('%d.%m.%Y')}"
+    selected_services = list(booking.extra_services.all())
+    if selected_services:
+        services_text = "\n".join(
+            f"• {clean(service.title)} — {service.price} {clean(service.currency)}"
+            for service in selected_services
+        )
+        text += f"\n<b>Доп. услуги:</b>\n{services_text}"
     if booking.comment:
         text += f"\n<b>Комментарий:</b> {clean(booking.comment)}"
 
-    send_telegram_task.delay(text)
-    send_email_task.delay(f"Новая бронь #{booking.id}", text.replace("<b>", "").replace("</b>", ""))
+    enqueue_task_safely(send_telegram_task, text)
+    enqueue_task_safely(send_email_task, f"Новая бронь #{booking.id}", text.replace("<b>", "").replace("</b>", ""))
 
 
 def send_payment_success_notification(payment):
@@ -41,8 +60,8 @@ def send_payment_success_notification(payment):
         f"<b>Клиент:</b> {clean(b.customer_name)}\n"
         f"<b>Сумма:</b> {payment.amount} {payment.currency}"
     )
-    send_telegram_task.delay(text)
-    send_email_task.delay(f"Оплата брони #{b.id}", text.replace("<b>", "").replace("</b>", ""))
+    enqueue_task_safely(send_telegram_task, text)
+    enqueue_task_safely(send_email_task, f"Оплата брони #{b.id}", text.replace("<b>", "").replace("</b>", ""))
 
 
 def send_quiz_notification(lead):
@@ -182,10 +201,10 @@ def send_quiz_notification(lead):
     else:
         text += "\n\n🧭 <b>Запрос:</b> Не указан"
 
-    send_telegram_task.delay(text)
+    enqueue_task_safely(send_telegram_task, text)
 
     email_text = text.replace("<b>", "").replace("</b>", "")
-    send_email_task.delay(f"Лид квиза #{lead.id}", email_text)
+    enqueue_task_safely(send_email_task, f"Лид квиза #{lead.id}", email_text)
 
 
 def send_transport_notification(tr):
@@ -200,8 +219,8 @@ def send_transport_notification(tr):
     )
     if tr.comment:
         text += f"\n<b>Комментарий:</b> {clean(tr.comment)}"
-    send_telegram_task.delay(text)
-    send_email_task.delay(f"Трансфер #{tr.id}", text.replace("<b>", "").replace("</b>", ""))
+    enqueue_task_safely(send_telegram_task, text)
+    enqueue_task_safely(send_email_task, f"Трансфер #{tr.id}", text.replace("<b>", "").replace("</b>", ""))
 
 
 def send_contact_notification(cr):
@@ -213,5 +232,5 @@ def send_contact_notification(cr):
         f"<b>Источник:</b> {clean(cr.source)}\n"
         f"<b>Сообщение:</b> {clean(cr.message)}"
     )
-    send_telegram_task.delay(text)
-    send_email_task.delay(f"Заявка #{cr.id}", text.replace("<b>", "").replace("</b>", ""))
+    enqueue_task_safely(send_telegram_task, text)
+    enqueue_task_safely(send_email_task, f"Заявка #{cr.id}", text.replace("<b>", "").replace("</b>", ""))

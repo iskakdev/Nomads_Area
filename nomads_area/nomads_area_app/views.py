@@ -90,7 +90,7 @@ class TourViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         today = date.today()
-        base = Tour.objects.filter(is_active=True).select_related("country", "city").prefetch_related("images")
+        base = Tour.objects.filter(is_active=True).select_related("country", "city").prefetch_related("images", "categories")
         dates_p = Prefetch(
             "dates",
             queryset=TourDate.objects.filter(start_date__gte=today).order_by("start_date"),
