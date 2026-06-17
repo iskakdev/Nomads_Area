@@ -341,12 +341,13 @@ class BookingCreateSerializer(LocalizedModelSerializer):
     price_per_person = serializers.SerializerMethodField()
     total_price = serializers.SerializerMethodField()
     prepayment_amount = serializers.SerializerMethodField()
+    extra_services = serializers.PrimaryKeyRelatedField(queryset=ExtraService.objects.filter(is_active=True), many=True, required=False)
 
     class Meta:
         model = Booking
         fields = ["id", "tour", "tour_date", "preferred_start_date", "preferred_end_date",
                   "customer_name", "customer_contact", "adults", "children", "comment",
-                  "number_of_people", "price_per_person", "total_price", "prepayment_amount",
+                  "extra_services", "number_of_people", "price_per_person", "total_price", "prepayment_amount",
                   "currency", "payment", "status", "created_at"]
         read_only_fields = ["id", "number_of_people", "price_per_person", "total_price",
                             "prepayment_amount", "currency", "payment", "status", "created_at"]
@@ -384,6 +385,11 @@ class BookingCreateSerializer(LocalizedModelSerializer):
             if not tier:
                 raise serializers.ValidationError({"non_field_errors": f"Нет тарифа для {total} чел"})
             self._price_tier = tier
+
+        extra_services = attrs.get("extra_services") or []
+        invalid_services = [service.id for service in extra_services if service.tour_id != tour.id]
+        if invalid_services:
+            raise serializers.ValidationError({"extra_services": "Услуга не относится к выбранному туру"})
 
         return attrs
 
@@ -479,6 +485,11 @@ class TransportRequestCreateSerializer(LocalizedModelSerializer):
             raise serializers.ValidationError({"vehicle": f"Макс {v.seats} пасс."})
         if b > v.bags:
             raise serializers.ValidationError({"vehicle": f"Макс {v.bags} багаж."})
+        extra_services = attrs.get("extra_services") or []
+        invalid_services = [service.id for service in extra_services if service.tour_id != tour.id]
+        if invalid_services:
+            raise serializers.ValidationError({"extra_services": "Услуга не относится к выбранному туру"})
+
         return attrs
 
     def create(self, validated_data):
