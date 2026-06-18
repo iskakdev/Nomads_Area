@@ -1,27 +1,20 @@
-import logging
 from datetime import date
 from django.db import transaction
-import requests
 from django.conf import settings
 from django.db.models import Count, Prefetch, Q
-from django.core.exceptions import ValidationError as DjangoValidationError
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
-from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
-from rest_framework.views import APIView
 
 from .filters import TourFilter
 from .models import (Attraction, City, Country, QuizProgress, QuizQuestion, SiteSettings,
-                     TeamMember, Tour, TourCategory, TourDate, TourPriceTier,
-                     Payment)
+                     TeamMember, Tour, TourCategory, TourDate, TourPriceTier)
 from .notifications import (send_booking_notification, send_contact_notification,
-                            send_quiz_notification, send_payment_success_notification)
-from .payment_providers import PaymentProviderError, PaymentVerificationError, get_payment_provider
+                            send_quiz_notification)
 from .serializers import (AttractionDetailSerializer, AttractionListSerializer, BookingCreateSerializer,
                           CityDetailSerializer, CityListSerializer, ContactRequestSerializer,
                           CountryDetailSerializer, CountryListSerializer, QuizLeadSerializer,
@@ -29,10 +22,8 @@ from .serializers import (AttractionDetailSerializer, AttractionListSerializer, 
                           SiteSettingsSerializer, TeamMemberSerializer, TourCategoryDetailSerializer,
                           TourCategoryListSerializer, TourDetailSerializer, TourListSerializer,
                           )
-from .services import handle_payment_webhook_service, update_quiz_progress_service
+from .services import update_quiz_progress_service
 from .throttles import FormSubmitThrottle
-
-logger = logging.getLogger(__name__)
 
 cache_public_api = method_decorator(
     cache_page(
@@ -138,31 +129,6 @@ class BookingCreateView(generics.CreateAPIView):
         booking = serializer.save()
         if not getattr(serializer, "is_duplicate", False):
             transaction.on_commit(lambda: send_booking_notification(booking))
-
-
-class FinikPayWebhookView(APIView):
-    permission_classes = [AllowAny]
-
-    def post(self, request, *args, **kwargs):
-        provider = get_payment_provider()
-        sig = request.headers.get("X-Finikpay-Signature") or request.headers.get("X-Signature")
-        if not provider.verify_webhook_signature(request.body, sig):
-            raise PermissionDenied("Invalid signature.")
-
-        try:
-            result = handle_payment_webhook_service(request.data)
-        except (PaymentVerificationError, PaymentProviderError, DjangoValidationError) as e:
-            raise ValidationError({"detail": str(e)}) from e
-
-        if result["changed"] and result["payment"].status == Payment.STATUS_PAID:
-            transaction.on_commit(lambda: send_payment_success_notification(result["payment"]))
-
-        return Response({
-            "status": "ok",
-            "payment_id": result["payment"].id,
-            "payment_status": result["payment"].status,
-            "changed": result["changed"],
-        }, status=status.HTTP_200_OK)
 
 
 @cache_public_api

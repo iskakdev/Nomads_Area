@@ -29,7 +29,6 @@ def send_booking_notification(booking):
         f"<b>Дети:</b> {booking.children}\n"
         f"<b>Всего людей:</b> {booking.number_of_people}\n"
         f"<b>Сумма:</b> {booking.total_price} {booking.currency}\n"
-        f"<b>Предоплата:</b> {booking.prepayment_amount} {booking.currency}\n"
         f"<b>Статус:</b> {clean(booking.status)}"
     )
     if booking.tour_date:
@@ -48,20 +47,6 @@ def send_booking_notification(booking):
 
     enqueue_task_safely(send_telegram_task, text)
     enqueue_task_safely(send_email_task, f"Новая бронь #{booking.id}", text.replace("<b>", "").replace("</b>", ""))
-
-
-def send_payment_success_notification(payment):
-    b = payment.booking
-    text = (
-        f"✅ <b>Оплата получена</b>\n\n"
-        f"<b>Платёж:</b> #{payment.id}\n"
-        f"<b>Бронь:</b> #{b.id}\n"
-        f"<b>Тур:</b> {clean(b.tour.title)}\n"
-        f"<b>Клиент:</b> {clean(b.customer_name)}\n"
-        f"<b>Сумма:</b> {payment.amount} {payment.currency}"
-    )
-    enqueue_task_safely(send_telegram_task, text)
-    enqueue_task_safely(send_email_task, f"Оплата брони #{b.id}", text.replace("<b>", "").replace("</b>", ""))
 
 
 def send_quiz_notification(lead):

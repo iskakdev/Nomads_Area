@@ -1,6 +1,5 @@
 import hashlib
 import json
-import logging
 import uuid
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
@@ -8,12 +7,9 @@ from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework import serializers
 from .exceptions import InsufficientSpotsError
-from .models import Booking, ContactRequest, Payment, QuizLead, QuizQuestion, TourDate
-from .payment_providers import get_payment_provider
+from .models import Booking, ContactRequest, QuizLead, QuizQuestion, TourDate
 
-logger = logging.getLogger(__name__)
 DEDUP_WINDOW_MINUTES = 5
-PREPAYMENT_PERCENT = Decimal("0.30")
 
 
 def quantize_money(value):
@@ -29,7 +25,6 @@ def calculate_booking_price(tour, total_people, price_tier=None):
     return {
         "price_per_person": quantize_money(price_per_person),
         "total_price": total_price,
-        "prepayment_amount": quantize_money(total_price * PREPAYMENT_PERCENT),
     }
 
 
@@ -61,7 +56,7 @@ def _recent_duplicate(model, fingerprint):
     ).order_by("-created_at").first()
 
 
-def _create_booking_and_payment_db(validated_data, price_data, tour_date):
+def _create_booking_db(validated_data, price_data, tour_date):
     """Только БД-операции. Вызывается строго внутри transaction.atomic()."""
     locked_tour_date = None
     if tour_date is not None:
@@ -78,25 +73,16 @@ def _create_booking_and_payment_db(validated_data, price_data, tour_date):
         tour_date=locked_tour_date,
         price_per_person=price_data["price_per_person"],
         total_price=price_data["total_price"],
-        prepayment_amount=price_data["prepayment_amount"],
         currency=data["tour"].currency,
         status=Booking.STATUS_PENDING,
         **data,
     )
     if extra_services:
         booking.extra_services.set(extra_services)
-
-    payment = Payment.objects.create(
-        booking=booking,
-        provider=Payment.PROVIDER_FINIKPAY,
-        amount=booking.prepayment_amount,
-        currency=booking.currency,
-        status=Payment.STATUS_PENDING,
-    )
-    return booking, payment
+    return booking
 
 
-def create_booking_with_payment_service(validated_data, price_tier=None, tour_date=None):
+def create_booking_service(validated_data, price_tier=None, tour_date=None):
     validated_data = validated_data.copy()
     tour = validated_data["tour"]
     total_people = validated_data["adults"] + validated_data.get("children", 0)
@@ -123,49 +109,9 @@ def create_booking_with_payment_service(validated_data, price_tier=None, tour_da
         _acquire_fingerprint_lock(fingerprint)
         existing = _recent_duplicate(Booking, fingerprint)
         if existing:
-            return existing, existing.payments.order_by("-created_at").first(), True
-        booking, payment = _create_booking_and_payment_db(validated_data, price_data, tour_date)
-
-    # Шаг 2: HTTP-запрос к провайдеру строго вне транзакции
-    try:
-        provider = get_payment_provider()
-        data = provider.create_payment(payment)
-        payment.provider_payment_id = data.get("provider_payment_id", "")
-        payment.payment_url = data.get("payment_url", "")
-        payment.save(update_fields=["provider_payment_id", "payment_url", "updated_at"])
-    except Exception as e:
-        logger.exception("Payment provider error: %s", e)
-        payment, _ = payment.mark_failed()
-
-    return booking, payment, False
-
-
-def confirm_payment_service(payment, provider_payload=None):
-    return payment.mark_paid_and_confirm_booking(provider_payload=provider_payload)
-
-
-def handle_payment_webhook_service(payload):
-    provider = get_payment_provider()
-    parsed = provider.parse_webhook(payload)
-    payment = Payment.objects.select_related("booking", "booking__tour", "booking__tour_date").get(pk=parsed["payment_id"])
-
-    if (
-        parsed["provider_payment_id"]
-        and payment.provider_payment_id
-        and payment.provider_payment_id != parsed["provider_payment_id"]
-    ):
-        raise serializers.ValidationError("Provider payment ID mismatch.")
-    if parsed["provider_payment_id"] and not payment.provider_payment_id:
-        payment.provider_payment_id = parsed["provider_payment_id"]
-        payment.save(update_fields=["provider_payment_id", "updated_at"])
-
-    if parsed["status"] in {"paid", "success", "succeeded", "confirmed"}:
-        payment, changed = confirm_payment_service(payment=payment, provider_payload=payload)
-        return {"payment": payment, "changed": changed}
-    if parsed["status"] in {"failed", "cancelled", "canceled", "error"}:
-        payment, changed = payment.mark_failed(provider_payload=payload)
-        return {"payment": payment, "changed": changed}
-    return {"payment": payment, "changed": False}
+            return existing, True
+        booking = _create_booking_db(validated_data, price_data, tour_date)
+        return booking, False
 
 
 def update_quiz_progress_service(progress, validated_data):

@@ -3,10 +3,10 @@ from django.utils.translation import get_language
 from drf_spectacular.utils import extend_schema_field
 from rest_framework import serializers
 from .models import (Attraction, AttractionImage, Booking, City, ContactRequest, Country,
-                     ExtraService, FAQ, ItineraryDay, Payment, QuizLead, QuizProgress,
+                     ExtraService, FAQ, ItineraryDay, QuizLead, QuizProgress,
                      QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory, TourDate,
                      TourImage, TourPriceTier, TourRoutePoint)
-from .services import (create_booking_with_payment_service, create_contact_request_service,
+from .services import (create_booking_service, create_contact_request_service,
                        create_quiz_lead_service)
 
 
@@ -318,29 +318,20 @@ class CityDetailSerializer(LocalizedModelSerializer):
     def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
 
 
-class PaymentSerializer(LocalizedModelSerializer):
-    class Meta:
-        model = Payment
-        fields = ["id", "provider", "amount", "currency", "payment_url", "status", "provider_payment_id", "paid_at", "created_at"]
-        read_only_fields = fields
-
-
 class BookingCreateSerializer(LocalizedModelSerializer):
-    payment = serializers.SerializerMethodField()
     number_of_people = serializers.SerializerMethodField()
     price_per_person = serializers.SerializerMethodField()
     total_price = serializers.SerializerMethodField()
-    prepayment_amount = serializers.SerializerMethodField()
     extra_services = serializers.PrimaryKeyRelatedField(queryset=ExtraService.objects.filter(is_active=True), many=True, required=False)
 
     class Meta:
         model = Booking
         fields = ["id", "tour", "tour_date", "preferred_start_date", "preferred_end_date",
                   "customer_name", "customer_contact", "adults", "children", "comment",
-                  "extra_services", "number_of_people", "price_per_person", "total_price", "prepayment_amount",
-                  "currency", "payment", "status", "created_at"]
+                  "extra_services", "number_of_people", "price_per_person", "total_price",
+                  "currency", "status", "created_at"]
         read_only_fields = ["id", "number_of_people", "price_per_person", "total_price",
-                            "prepayment_amount", "currency", "payment", "status", "created_at"]
+                            "currency", "status", "created_at"]
 
     def validate(self, attrs):
         tour = attrs["tour"]
@@ -384,18 +375,17 @@ class BookingCreateSerializer(LocalizedModelSerializer):
         return attrs
 
     def create(self, validated_data):
-        b, p, is_dup = create_booking_with_payment_service(validated_data, price_tier=self._price_tier, tour_date=self._resolved_date)
-        self.payment = p
+        b, is_dup = create_booking_service(
+            validated_data,
+            price_tier=self._price_tier,
+            tour_date=self._resolved_date,
+        )
         self.is_duplicate = is_dup
         return b
-
-    def get_payment(self, obj):
-        return PaymentSerializer(getattr(self, "payment", None) or obj.payments.order_by("-created_at").first()).data
 
     def get_number_of_people(self, obj): return obj.number_of_people
     def get_price_per_person(self, obj): return obj.price_per_person
     def get_total_price(self, obj): return obj.total_price
-    def get_prepayment_amount(self, obj): return obj.prepayment_amount
 
 
 class QuizQuestionSerializer(LocalizedModelSerializer):
