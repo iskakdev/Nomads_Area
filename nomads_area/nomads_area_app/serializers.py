@@ -45,25 +45,18 @@ class LocalizedModelSerializer(serializers.ModelSerializer):
 
         return data
 
-
-
-
 def _file_url(instance, field, request=None):
     f = getattr(instance, field, None)
     return request.build_absolute_uri(f.url) if f and request else f.url if f else None
 
-
 def _disp(val, en_map, ru_map):
     return en_map.get(val, val) if is_english() else ru_map.get(val, val)
-
 
 def get_tour_type_display(v):
     return _disp(v, {"group": "Group", "private": "Private"}, {"group": "Групповой", "private": "Приватный"})
 
-
 def get_season_display(v):
     return _disp(v, {"all_year": "All year", "warm": "Warm", "winter": "Winter"}, {"all_year": "Круглый год", "warm": "Тёплый", "winter": "Зима"})
-
 
 def get_vehicle_cat_display(v):
     return _disp(v, {"sedan": "Sedan", "minivan": "Minivan", "minibus": "Minibus"}, {"sedan": "Седан", "minivan": "Минивэн", "minibus": "Миниавтобус"})
@@ -160,7 +153,8 @@ class TourImageSerializer(LocalizedModelSerializer):
 
 def get_display_price(obj):
     if obj.tour_type == Tour.TOUR_TYPE_PRIVATE:
-        tier = obj.price_tiers.order_by("price_per_person").first()
+        tiers = obj.price_tiers.all()
+        tier = min(tiers, key=lambda item: item.price_per_person, default=None)
         return tier.price_per_person if tier else obj.price
     return obj.price
 

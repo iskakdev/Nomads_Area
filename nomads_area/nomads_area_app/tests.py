@@ -1,9 +1,11 @@
 from datetime import date, timedelta
 from unittest.mock import patch
 
+from django.test import SimpleTestCase
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from .throttles import FormSubmitThrottle
 from .models import (
     Booking, City, ContactRequest, Country,
     QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
@@ -13,6 +15,12 @@ from .models import (
 
 LANG = "ru"
 API = f"/api/{LANG}"
+
+
+class FormSubmitThrottleTests(SimpleTestCase):
+    def test_rate_comes_from_drf_settings(self):
+        with patch.dict(FormSubmitThrottle.THROTTLE_RATES, {"forms": "17/minute"}):
+            self.assertEqual(FormSubmitThrottle().get_rate(), "17/minute")
 
 
 class BaseNoSpamTestCase(APITestCase):
