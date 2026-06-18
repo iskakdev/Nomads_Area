@@ -211,7 +211,7 @@ class TourRoutePointSerializer(LocalizedModelSerializer):
 
 
 class ExtraServiceSerializer(LocalizedModelSerializer):
-    localized_fields = ("title", "description", "price_label")
+    localized_fields = ("title", "description", "features", "price_label")
     image_url = serializers.SerializerMethodField()
 
     class Meta:
