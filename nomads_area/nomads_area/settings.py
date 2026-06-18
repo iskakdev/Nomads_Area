@@ -144,6 +144,28 @@ MODELTRANSLATION_LANGUAGES = ("ru", "en", "es", "fr", "de")
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
+CACHE_URL = os.getenv("CACHE_URL", "redis://127.0.0.1:6379/1")
+CACHE_BACKEND = os.getenv(
+    "CACHE_BACKEND",
+    "django.core.cache.backends.redis.RedisCache",
+)
+CACHES = {
+    "default": {
+        "BACKEND": CACHE_BACKEND,
+        "LOCATION": CACHE_URL,
+        "KEY_PREFIX": os.getenv("CACHE_KEY_PREFIX", "nomads-area"),
+        "TIMEOUT": int(os.getenv("CACHE_DEFAULT_TIMEOUT", "300")),
+    }
+}
+if CACHE_BACKEND == "django.core.cache.backends.redis.RedisCache":
+    CACHES["default"]["OPTIONS"] = {
+        "socket_connect_timeout": 2,
+        "socket_timeout": 2,
+    }
+
+API_CACHE_TIMEOUT = int(os.getenv("API_CACHE_TIMEOUT", "60"))
+API_CACHE_KEY_PREFIX = os.getenv("API_CACHE_KEY_PREFIX", "public-api-v1")
+
 
 REST_FRAMEWORK = {
     "DEFAULT_SCHEMA_CLASS": "drf_spectacular.openapi.AutoSchema",
@@ -158,7 +180,7 @@ REST_FRAMEWORK = {
         "rest_framework.throttling.AnonRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
-        "anon": os.getenv("DRF_ANON_THROTTLE_RATE", "10/minute"),
+        "anon": os.getenv("DRF_ANON_THROTTLE_RATE", "300/minute"),
         "forms": os.getenv("DRF_FORMS_THROTTLE_RATE", "5/minute"),
     },
 }

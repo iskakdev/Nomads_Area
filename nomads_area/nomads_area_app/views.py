@@ -5,6 +5,8 @@ import requests
 from django.conf import settings
 from django.db.models import Count, Prefetch, Q
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.utils.decorators import method_decorator
+from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
 from rest_framework import generics, status, viewsets
 from rest_framework.exceptions import PermissionDenied, ValidationError
@@ -15,7 +17,8 @@ from rest_framework.views import APIView
 
 from .filters import TourFilter
 from .models import (Attraction, City, Country, QuizProgress, QuizQuestion, SiteSettings,
-                     TeamMember, Tour, TourCategory, TourDate, TransferRoute, TransportRequest, Payment)
+                     TeamMember, Tour, TourCategory, TourDate, TourPriceTier,
+                     TransferRoute, TransportRequest, Payment)
 from .notifications import (send_booking_notification, send_contact_notification,
                             send_quiz_notification, send_transport_notification, send_payment_success_notification)
 from .payment_providers import PaymentProviderError, PaymentVerificationError, get_payment_provider
@@ -31,7 +34,16 @@ from .throttles import FormSubmitThrottle
 
 logger = logging.getLogger(__name__)
 
+cache_public_api = method_decorator(
+    cache_page(
+        settings.API_CACHE_TIMEOUT,
+        key_prefix=settings.API_CACHE_KEY_PREFIX,
+    ),
+    name="dispatch",
+)
 
+
+@cache_public_api
 class SiteSettingsView(generics.RetrieveAPIView):
     serializer_class = SiteSettingsSerializer
     permission_classes = [AllowAny]
@@ -40,12 +52,14 @@ class SiteSettingsView(generics.RetrieveAPIView):
         return SiteSettings.get_settings()
 
 
+@cache_public_api
 class TeamMemberListView(generics.ListAPIView):
     queryset = TeamMember.objects.filter(is_active=True)
     serializer_class = TeamMemberSerializer
     permission_classes = [AllowAny]
 
 
+@cache_public_api
 class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
@@ -56,6 +70,7 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
         return CountryDetailSerializer if self.action == "retrieve" else CountryListSerializer
 
 
+@cache_public_api
 class CityViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
@@ -66,6 +81,7 @@ class CityViewSet(viewsets.ReadOnlyModelViewSet):
         return CityDetailSerializer if self.action == "retrieve" else CityListSerializer
 
 
+@cache_public_api
 class TourCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
@@ -81,6 +97,7 @@ class TourCategoryViewSet(viewsets.ReadOnlyModelViewSet):
         return TourCategoryDetailSerializer if self.action == "retrieve" else TourCategoryListSerializer
 
 
+@cache_public_api
 class TourViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
     filter_backends = [DjangoFilterBackend, OrderingFilter, SearchFilter]
@@ -90,14 +107,22 @@ class TourViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         today = date.today()
-        base = Tour.objects.filter(is_active=True).select_related("country", "city").prefetch_related("images", "categories")
+        price_tiers_p = Prefetch(
+            "price_tiers",
+            queryset=TourPriceTier.objects.order_by("price_per_person"),
+        )
+        base = (
+            Tour.objects.filter(is_active=True)
+            .select_related("country", "city")
+            .prefetch_related("images", "categories", price_tiers_p)
+        )
         dates_p = Prefetch(
             "dates",
             queryset=TourDate.objects.filter(start_date__gte=today).order_by("start_date"),
             to_attr="prefetched_dates",
         )
         if self.action == "retrieve":
-            return base.prefetch_related("itinerary_days", "faqs", "extra_services", "route_points", "price_tiers", "attractions", dates_p)
+            return base.prefetch_related("itinerary_days", "faqs", "extra_services", "route_points", "attractions", dates_p)
         return base.prefetch_related(dates_p)
 
     def get_serializer_class(self):
@@ -140,6 +165,7 @@ class FinikPayWebhookView(APIView):
         }, status=status.HTTP_200_OK)
 
 
+@cache_public_api
 class QuizQuestionListView(generics.ListAPIView):
     queryset = QuizQuestion.objects.filter(is_active=True).prefetch_related("options")
     serializer_class = QuizQuestionSerializer
@@ -193,6 +219,7 @@ class QuizLeadCreateView(generics.CreateAPIView):
             transaction.on_commit(lambda: send_quiz_notification(lead))
 
 
+@cache_public_api
 class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
@@ -203,6 +230,7 @@ class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
         return AttractionDetailSerializer if self.action == "retrieve" else AttractionListSerializer
 
 
+@cache_public_api
 class TransferRouteListView(generics.ListAPIView):
     queryset = TransferRoute.objects.prefetch_related("vehicles").all()
     serializer_class = TransferRouteSerializer
@@ -229,5 +257,3 @@ class ContactRequestCreateView(generics.CreateAPIView):
         instance = serializer.save()
         if not getattr(serializer, "is_duplicate", False):
             transaction.on_commit(lambda: send_contact_notification(instance))
-
-
