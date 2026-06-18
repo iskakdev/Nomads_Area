@@ -13,7 +13,7 @@ const requests3xx = new Counter("http_3xx");
 const requests5xx = new Counter("http_5xx");
 const unexpected = new Counter("http_unexpected");
 const successful = new Rate("successful_responses");
-const responseSize = new Trend("response_size", true);
+const responseSize = new Trend("response_size");
 
 export const options = {
   discardResponseBodies: true,
@@ -42,7 +42,12 @@ export const options = {
 };
 
 export default function () {
-  const response = http.get(target, {
+  const separator = target.includes("?") ? "&" : "?";
+  const requestUrl = __ENV.CACHE_BUST === "yes"
+    ? `${target}${separator}load_test_vu=${__VU}&load_test_iteration=${__ITER}`
+    : target;
+
+  const response = http.get(requestUrl, {
     redirects: 0,
     headers: {
       Accept: "application/json",
