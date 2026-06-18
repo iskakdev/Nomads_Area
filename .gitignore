@@ -33,3 +33,4 @@ Thumbs.db
 # Celery
 celerybeat-schedule
 celerybeat.pid
+loadtest/results/
