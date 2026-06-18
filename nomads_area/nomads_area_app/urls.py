@@ -3,8 +3,7 @@ from rest_framework.routers import DefaultRouter
 from .views import (AttractionViewSet, BookingCreateView, CityViewSet, ContactRequestCreateView,
                     CountryViewSet, FinikPayWebhookView, QuizLeadCreateView,
                     QuizProgressStartView, QuizProgressUpdateView, QuizQuestionListView,
-                    SiteSettingsView, TeamMemberListView, TourCategoryViewSet, TourViewSet,
-                    TransferRouteListView, TransportRequestCreateView)
+                    SiteSettingsView, TeamMemberListView, TourCategoryViewSet, TourViewSet)
 
 router = DefaultRouter()
 router.register(r"countries", CountryViewSet, basename="countries")
@@ -23,7 +22,5 @@ urlpatterns = [
     path("quiz/submit/", QuizLeadCreateView.as_view(), name="quiz-submit"),
     path("quiz/progress/", QuizProgressStartView.as_view(), name="quiz-progress"),
     path("quiz/progress/save/<str:session_key>/", QuizProgressUpdateView.as_view(), name="quiz-progress-save"),
-    path("transfer-routes/", TransferRouteListView.as_view(), name="transfer-routes"),
-    path("transport-requests/", TransportRequestCreateView.as_view(), name="transport-request-create"),
     path("contact/", ContactRequestCreateView.as_view(), name="contact-request"),
 ]

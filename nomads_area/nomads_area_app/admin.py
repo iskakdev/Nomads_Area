@@ -6,8 +6,7 @@ from modeltranslation.admin import TranslationAdmin
 from .models import (Attraction, AttractionImage, Booking, City, ContactRequest, Country,
                      ExtraService, FAQ, ItineraryDay, Payment, QuizAnswerOption, QuizLead,
                      QuizProgress, QuizQuestion, SiteSettings, TeamMember, Tour,
-                     TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint,
-                     TransferRoute, TransportRequest, VehicleType)
+                     TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint)
 
 admin.site.site_header = "Nomads Area Admin"
 admin.site.site_title = "Nomads Area"
@@ -196,25 +195,6 @@ class AttractionAdmin(TranslationMediaMixin, TranslationAdmin):
     list_display = ["name", "city", "is_active"]; list_filter = ["is_active", "city"]
     search_fields = ["name", "description", "city__city_name"]; list_editable = ["is_active"]
     list_select_related = ["city"]; filter_horizontal = ["tours"]; inlines = [AttractionImageInline]
-
-
-@admin.register(TransferRoute)
-class TransferRouteAdmin(TranslationMediaMixin, TranslationAdmin):
-    list_display = ["departure_point", "arrival_point"]
-    search_fields = ["departure_point", "arrival_point"]
-
-
-@admin.register(VehicleType)
-class VehicleTypeAdmin(admin.ModelAdmin):
-    list_display = ["route", "category", "price", "seats", "bags"]; list_filter = ["category"]
-    list_select_related = ["route"]; search_fields = ["route__departure_point", "route__arrival_point"]
-
-
-@admin.register(TransportRequest)
-class TransportRequestAdmin(admin.ModelAdmin):
-    list_display = ["id", "vehicle", "customer_name", "customer_phone", "passengers", "bags", "status", "total_price", "created_at"]
-    list_filter = ["status", "created_at"]; search_fields = ["customer_name", "customer_phone", "comment"]
-    list_editable = ["status"]; readonly_fields = ["created_at"]; list_select_related = ["vehicle", "vehicle__route"]
 
 
 @admin.register(ContactRequest)

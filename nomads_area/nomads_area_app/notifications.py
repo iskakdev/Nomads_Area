@@ -184,24 +184,6 @@ def send_quiz_notification(lead):
     enqueue_task_safely(send_email_task, f"Лид квиза #{lead.id}", email_text)
 
 
-def send_transport_notification(tr):
-    v, r = tr.vehicle, tr.vehicle.route
-    text = (
-        f"🚘 <b>Трансфер #{tr.id}</b>\n\n"
-        f"<b>Маршрут:</b> {clean(r.departure_point)} → {clean(r.arrival_point)}\n"
-        f"<b>Авто:</b> {clean(v.get_category_display())}\n"
-        f"<b>Клиент:</b> {clean(tr.customer_name)}\n"
-        f"<b>Телефон:</b> {clean(tr.customer_phone)}\n"
-        f"<b>Пассажиры:</b> {tr.passengers}\n"
-        f"<b>Багаж:</b> {tr.bags}\n"
-        f"<b>Цена:</b> {tr.total_price}"
-    )
-    if tr.comment:
-        text += f"\n<b>Комментарий:</b> {clean(tr.comment)}"
-    enqueue_task_safely(send_telegram_task, text)
-    enqueue_task_safely(send_email_task, f"Трансфер #{tr.id}", text.replace("<b>", "").replace("</b>", ""))
-
-
 def send_contact_notification(cr):
     text = (
         f"📩 <b>Заявка #{cr.id}</b>\n\n"

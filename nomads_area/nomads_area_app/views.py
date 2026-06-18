@@ -18,9 +18,9 @@ from rest_framework.views import APIView
 from .filters import TourFilter
 from .models import (Attraction, City, Country, QuizProgress, QuizQuestion, SiteSettings,
                      TeamMember, Tour, TourCategory, TourDate, TourPriceTier,
-                     TransferRoute, TransportRequest, Payment)
+                     Payment)
 from .notifications import (send_booking_notification, send_contact_notification,
-                            send_quiz_notification, send_transport_notification, send_payment_success_notification)
+                            send_quiz_notification, send_payment_success_notification)
 from .payment_providers import PaymentProviderError, PaymentVerificationError, get_payment_provider
 from .serializers import (AttractionDetailSerializer, AttractionListSerializer, BookingCreateSerializer,
                           CityDetailSerializer, CityListSerializer, ContactRequestSerializer,
@@ -28,7 +28,7 @@ from .serializers import (AttractionDetailSerializer, AttractionListSerializer, 
                           QuizProgressSerializer, QuizProgressUpdateSerializer, QuizQuestionSerializer,
                           SiteSettingsSerializer, TeamMemberSerializer, TourCategoryDetailSerializer,
                           TourCategoryListSerializer, TourDetailSerializer, TourListSerializer,
-                          TransferRouteSerializer, TransportRequestCreateSerializer)
+                          )
 from .services import handle_payment_webhook_service, update_quiz_progress_service
 from .throttles import FormSubmitThrottle
 
@@ -228,24 +228,6 @@ class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_serializer_class(self):
         return AttractionDetailSerializer if self.action == "retrieve" else AttractionListSerializer
-
-
-@cache_public_api
-class TransferRouteListView(generics.ListAPIView):
-    queryset = TransferRoute.objects.prefetch_related("vehicles").all()
-    serializer_class = TransferRouteSerializer
-    permission_classes = [AllowAny]
-
-
-class TransportRequestCreateView(generics.CreateAPIView):
-    serializer_class = TransportRequestCreateSerializer
-    permission_classes = [AllowAny]
-    throttle_classes = [FormSubmitThrottle]
-
-    def perform_create(self, serializer):
-        instance = serializer.save()
-        if not getattr(serializer, "is_duplicate", False):
-            transaction.on_commit(lambda: send_transport_notification(instance))
 
 
 class ContactRequestCreateView(generics.CreateAPIView):

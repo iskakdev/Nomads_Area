@@ -18,14 +18,12 @@ from .services import (
     create_booking_with_payment_service,
     create_contact_request_service,
     create_quiz_lead_service,
-    create_transport_request_service,
 )
 from .throttles import FormSubmitThrottle
 from .models import (
     Booking, City, ContactRequest, Country,
     Payment, QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
-    ExtraService, Tour, TourDate, TourPriceTier, TransferRoute,
-    TransportRequest, VehicleType,
+    ExtraService, Tour, TourDate, TourPriceTier,
 )
 
 LANG = "ru"
@@ -138,20 +136,7 @@ class ProjectTests(BaseNoSpamTestCase):
             price_per_person=100,
         )
 
-        route = TransferRoute.objects.create(
-            departure_point="Bishkek",
-            arrival_point="Karakol",
-        )
-        self.vehicle = VehicleType.objects.create(
-            route=route,
-            category="minivan",
-            price=500,
-            seats=6,
-            bags=2,
-        )
-
         self.booking_url = f"{API}/bookings/"
-        self.transport_url = f"{API}/transport-requests/"
         self.contact_url = f"{API}/contact/"
         self.quiz_submit_url = f"{API}/quiz/submit/"
         self.quiz_progress_url = f"{API}/quiz/progress/"
@@ -496,103 +481,6 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(payment.status, Payment.STATUS_PENDING)
 
     # ------------------------------------------------------------------ #
-    # ТРАНСФЕРЫ                                                            #
-    # ------------------------------------------------------------------ #
-
-    def test_transport_create_success(self):
-        """Заявка на трансфер создаётся, цена берётся из автомобиля."""
-        self._reset_mocks()
-
-        payload = {
-            "vehicle": self.vehicle.id,
-            "customer_phone": "+996555999888",
-            "customer_name": "Client",
-            "passengers": 2,
-            "bags": 1,
-            "comment": "Test",
-        }
-
-        response = self.client.post(self.transport_url, payload, format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(TransportRequest.objects.count(), 1)
-        request = TransportRequest.objects.get()
-        self.assertEqual(request.passengers, 2)
-        self.assertEqual(request.bags, 1)
-        self.assertEqual(response.data["passengers"], 2)
-        self.assertEqual(response.data["bags"], 1)
-        self.assertEqual(self.mock_tg.call_count, 1)
-        self.assertEqual(self.mock_email.call_count, 1)
-
-    def test_transport_deduplication(self):
-        """Два одинаковых запроса — создаётся одна заявка."""
-        self._reset_mocks()
-
-        payload = {
-            "vehicle": self.vehicle.id,
-            "customer_phone": "+996555999888",
-            "customer_name": "Client",
-            "passengers": 2,
-            "bags": 1,
-        }
-
-        response1 = self.client.post(self.transport_url, payload, format="json")
-        response2 = self.client.post(self.transport_url, payload, format="json")
-
-        self.assertEqual(response1.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(TransportRequest.objects.count(), 1)
-        self.assertEqual(self.mock_tg.call_count, 1)
-
-    def test_transport_changed_comment_is_not_duplicate(self):
-        payload = {
-            "vehicle": self.vehicle.id,
-            "customer_phone": "+996555999888",
-            "customer_name": "Client",
-            "passengers": 2,
-            "bags": 1,
-            "comment": "Airport",
-        }
-
-        first = self.client.post(self.transport_url, payload, format="json")
-        payload["comment"] = "Hotel"
-        second = self.client.post(self.transport_url, payload, format="json")
-
-        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(TransportRequest.objects.count(), 2)
-
-    def test_transport_changed_passenger_count_is_not_duplicate(self):
-        payload = {
-            "vehicle": self.vehicle.id,
-            "customer_phone": "+996555999888",
-            "customer_name": "Client",
-            "passengers": 1,
-            "bags": 1,
-        }
-
-        first = self.client.post(self.transport_url, payload, format="json")
-        payload["passengers"] = 2
-        second = self.client.post(self.transport_url, payload, format="json")
-
-        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
-        self.assertEqual(TransportRequest.objects.count(), 2)
-
-    def test_transport_overbooking_passengers_fails(self):
-        """Пассажиров больше чем мест в авто — ошибка."""
-        payload = {
-            "vehicle": self.vehicle.id,
-            "customer_phone": "+996555000001",
-            "passengers": 10,
-            "bags": 0,
-        }
-
-        response = self.client.post(self.transport_url, payload, format="json")
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-
-    # ------------------------------------------------------------------ #
     # КОНТАКТНЫЕ ЗАЯВКИ                                                    #
     # ------------------------------------------------------------------ #
 
@@ -786,18 +674,6 @@ class ConcurrentIntegrityTests(TransactionTestCase):
             end_date=date.today() + timedelta(days=13),
             available_spots=5,
         )
-        route = TransferRoute.objects.create(
-            departure_point="Bishkek",
-            arrival_point="Karakol",
-        )
-        self.vehicle = VehicleType.objects.create(
-            route=route,
-            category="minivan",
-            price=500,
-            seats=6,
-            bags=2,
-        )
-
     def _create_booking(self, contact, adults):
         close_old_connections()
         try:
@@ -863,24 +739,6 @@ class ConcurrentIntegrityTests(TransactionTestCase):
 
         self.assertEqual(QuizLead.objects.count(), 1)
         self.assertEqual({lead.pk for lead, _ in results}, {QuizLead.objects.get().pk})
-        self.assertEqual(sorted(duplicate for _, duplicate in results), [False, True])
-
-    def test_concurrent_transport_requests_create_one_row(self):
-        def create_request():
-            vehicle = VehicleType.objects.get(pk=self.vehicle.pk)
-            return create_transport_request_service({
-                "vehicle": vehicle,
-                "customer_name": "Transfer Client",
-                "customer_phone": "+996700000010",
-                "passengers": 2,
-                "bags": 1,
-                "comment": "Airport",
-            })
-
-        results = self._run_concurrently(create_request)
-
-        self.assertEqual(TransportRequest.objects.count(), 1)
-        self.assertEqual({request.pk for request, _ in results}, {TransportRequest.objects.get().pk})
         self.assertEqual(sorted(duplicate for _, duplicate in results), [False, True])
 
     def test_concurrent_contact_requests_create_one_row(self):

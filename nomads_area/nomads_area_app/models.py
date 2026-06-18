@@ -513,59 +513,6 @@ class QuizProgress(models.Model):
         return f"Сессия {self.session_key}"
 
 
-class TransferRoute(models.Model):
-    departure_point = models.CharField(max_length=128, verbose_name="Откуда")
-    arrival_point = models.CharField(max_length=128, verbose_name="Куда")
-
-    class Meta:
-        verbose_name = "Маршрут"
-        verbose_name_plural = "Маршруты"
-        constraints = [models.UniqueConstraint(fields=["departure_point", "arrival_point"], name="unique_transfer")]
-
-    def __str__(self):
-        return f"{self.departure_point} -> {self.arrival_point}"
-
-
-class VehicleType(models.Model):
-    CATEGORY_CHOICES = (("sedan", "Седан"), ("minivan", "Минивэн"), ("minibus", "Миниавтобус"))
-    route = models.ForeignKey(TransferRoute, on_delete=models.CASCADE, related_name="vehicles", verbose_name="Маршрут")
-    category = models.CharField(max_length=16, choices=CATEGORY_CHOICES, verbose_name="Тип")
-    price = models.PositiveIntegerField(verbose_name="Цена")
-    seats = models.PositiveSmallIntegerField(verbose_name="Места")
-    bags = models.PositiveSmallIntegerField(verbose_name="Багаж")
-
-    class Meta:
-        verbose_name = "Авто"
-        verbose_name_plural = "Авто"
-        constraints = [models.UniqueConstraint(fields=["route", "category"], name="unique_vehicle_category")]
-
-    def __str__(self):
-        return f"{self.get_category_display()} на {self.route}"
-
-
-class TransportRequest(models.Model):
-    STATUS_CHOICES = (("pending", "Ожидает"), ("confirmed", "Подтверждено"), ("cancelled", "Отменено"))
-    vehicle = models.ForeignKey(VehicleType, on_delete=models.PROTECT, related_name="requests", verbose_name="Авто")
-    customer_name = models.CharField(max_length=128, blank=True, default="", verbose_name="Имя")
-    customer_phone = models.CharField(max_length=32, verbose_name="Телефон")
-    passengers = models.PositiveSmallIntegerField(default=1, verbose_name="Пассажиры")
-    bags = models.PositiveSmallIntegerField(default=0, verbose_name="Багаж")
-    comment = models.TextField(blank=True, default="", verbose_name="Комментарий")
-    total_price = models.PositiveIntegerField(verbose_name="Цена")
-    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending", verbose_name="Статус")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
-    request_fingerprint = models.CharField(max_length=64, db_index=True, editable=False, blank=True)
-
-    class Meta:
-        ordering = ["-created_at"]
-        verbose_name = "Заявка на трансфер"
-        verbose_name_plural = "Заявки"
-        indexes = [models.Index(fields=["customer_phone", "created_at"], name="transport_phone_idx")]
-
-    def __str__(self):
-        return f"{self.customer_phone} - {self.vehicle}"
-
-
 class ContactRequest(models.Model):
     STATUS_CHOICES = (("pending", "Ожидает"), ("answered", "Отвечено"))
     name = models.CharField(max_length=128, verbose_name="Имя")

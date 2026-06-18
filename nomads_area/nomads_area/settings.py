@@ -194,7 +194,6 @@ SPECTACULAR_SETTINGS = {
         "BookingStatusEnum": "nomads_area_app.models.Booking.STATUS_CHOICES",
         "PaymentStatusEnum": "nomads_area_app.models.Payment.STATUS_CHOICES",
         "ContactRequestStatusEnum": "nomads_area_app.models.ContactRequest.STATUS_CHOICES",
-        "TransportRequestStatusEnum": "nomads_area_app.models.TransportRequest.STATUS_CHOICES",
     },
 }
 

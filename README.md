@@ -159,14 +159,12 @@ GET  /api/ru/tours/
 GET  /api/ru/tours/{id}/
 GET  /api/ru/attractions/
 GET  /api/ru/attractions/{id}/
-GET  /api/ru/transfer-routes/
 ```
 
 ### Формы
 
 ```
 POST /api/ru/bookings/
-POST /api/ru/transport-requests/
 POST /api/ru/contact/
 POST /api/ru/quiz/submit/
 GET  /api/ru/quiz/questions/
