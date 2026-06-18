@@ -4,7 +4,7 @@ from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
 from modeltranslation.admin import TranslationAdmin
 from .models import (Attraction, AttractionImage, Booking, City, ContactRequest, Country,
-                     ExtraService, FAQ, ItineraryDay, Payment, QuizAnswerOption, QuizLead,
+                     ExtraService, FAQ, ItineraryDay, QuizAnswerOption, QuizLead,
                      QuizProgress, QuizQuestion, SiteSettings, TeamMember, Tour,
                      TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint)
 
@@ -108,10 +108,10 @@ class TourDateAdmin(admin.ModelAdmin):
 
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
-    list_display = ["id", "tour", "tour_date", "customer_name", "customer_contact", "status", "number_of_people", "total_price", "prepayment_amount", "created_at"]
+    list_display = ["id", "tour", "tour_date", "customer_name", "customer_contact", "status", "number_of_people", "total_price", "created_at"]
     list_filter = ["status", "created_at", "tour__tour_type"]
     search_fields = ["customer_name", "customer_contact", "comment", "tour__title"]
-    readonly_fields = ["created_at", "confirmed_at", "cancelled_at", "price_per_person", "total_price", "prepayment_amount", "currency"]
+    readonly_fields = ["created_at", "confirmed_at", "cancelled_at", "price_per_person", "total_price", "currency"]
     list_select_related = ["tour", "tour_date"]; actions = ["confirm_selected_bookings", "cancel_selected_bookings"]
 
     def confirm_selected_bookings(self, request, qs):
@@ -129,23 +129,6 @@ class BookingAdmin(admin.ModelAdmin):
             except Exception as e: self.message_user(request, f"Бронь #{b.id}: {e}", level=messages.ERROR)
         self.message_user(request, f"Отменено: {c}", level=messages.SUCCESS)
     cancel_selected_bookings.short_description = "Отменить выбранные"
-
-
-@admin.register(Payment)
-class PaymentAdmin(admin.ModelAdmin):
-    list_display = ["id", "booking", "provider", "amount", "currency", "status", "provider_payment_id", "created_at"]
-    list_filter = ["provider", "status", "currency", "created_at"]
-    search_fields = ["booking__id", "booking__customer_name", "provider_payment_id"]
-    readonly_fields = ["created_at", "updated_at", "paid_at", "failed_at", "provider_payload"]
-    list_select_related = ["booking"]; actions = ["mark_paid_manual"]
-
-    def mark_paid_manual(self, request, qs):
-        c = 0
-        for p in qs:
-            try: p.mark_paid_and_confirm_booking(provider_payload={"source": "admin"}); c += 1
-            except Exception as e: self.message_user(request, f"Платёж #{p.id}: {e}", level=messages.ERROR)
-        self.message_user(request, f"Подтверждено: {c}", level=messages.SUCCESS)
-    mark_paid_manual.short_description = "Подтвердить вручную"
 
 
 @admin.register(QuizQuestion)

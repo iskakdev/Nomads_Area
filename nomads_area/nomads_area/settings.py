@@ -192,7 +192,6 @@ SPECTACULAR_SETTINGS = {
     "VERSION": "1.0.0",
     "ENUM_NAME_OVERRIDES": {
         "BookingStatusEnum": "nomads_area_app.models.Booking.STATUS_CHOICES",
-        "PaymentStatusEnum": "nomads_area_app.models.Payment.STATUS_CHOICES",
         "ContactRequestStatusEnum": "nomads_area_app.models.ContactRequest.STATUS_CHOICES",
     },
 }
@@ -222,14 +221,6 @@ EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD", "")
 DEFAULT_FROM_EMAIL = os.getenv("DEFAULT_FROM_EMAIL", os.getenv("EMAIL_HOST_USER", ""))
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", os.getenv("EMAIL_HOST_USER", ""))
-
-
-FINIKPAY_API_KEY = os.getenv("FINIKPAY_API_KEY", "")
-FINIKPAY_SECRET_KEY = os.getenv("FINIKPAY_SECRET_KEY", "")
-FINIKPAY_BASE_URL = os.getenv("FINIKPAY_BASE_URL", "")
-FINIKPAY_WEBHOOK_SECRET = os.getenv("FINIKPAY_WEBHOOK_SECRET", "")
-FINIKPAY_RETURN_URL = os.getenv("FINIKPAY_RETURN_URL", "")
-FINIKPAY_CANCEL_URL = os.getenv("FINIKPAY_CANCEL_URL", "")
 
 
 CELERY_BROKER_URL = os.getenv("CELERY_BROKER_URL", "redis://localhost:6379/0")

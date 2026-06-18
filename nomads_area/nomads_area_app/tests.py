@@ -1,6 +1,3 @@
-import hashlib
-import hmac
-import json
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
@@ -8,21 +5,21 @@ from unittest.mock import patch
 
 from django.core.exceptions import ValidationError as DjangoValidationError
 from django.db import close_old_connections, connections
-from django.test import SimpleTestCase, TransactionTestCase, override_settings
+from django.test import SimpleTestCase, TransactionTestCase
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
 from .notifications import enqueue_task_safely
 from .services import (
-    create_booking_with_payment_service,
+    create_booking_service,
     create_contact_request_service,
     create_quiz_lead_service,
 )
 from .throttles import FormSubmitThrottle
 from .models import (
     Booking, City, ContactRequest, Country,
-    Payment, QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
+    QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
     ExtraService, Tour, TourDate, TourPriceTier,
 )
 
@@ -142,7 +139,6 @@ class ProjectTests(BaseNoSpamTestCase):
         self.quiz_progress_url = f"{API}/quiz/progress/"
         self.quiz_questions_url = f"{API}/quiz/questions/"
         self.tours_url = f"{API}/tours/"
-        self.webhook_url = f"{API}/payments/finikpay/webhook/"
 
     def _reset_mocks(self):
         self.mock_tg.reset_mock()
@@ -153,7 +149,7 @@ class ProjectTests(BaseNoSpamTestCase):
     # ------------------------------------------------------------------ #
 
     def test_booking_group_success(self):
-        """Групповое бронирование создаётся, цена и предоплата считаются правильно."""
+        """Групповое бронирование создаётся, цена считается правильно."""
         self._reset_mocks()
 
         payload = {
@@ -171,7 +167,6 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(response.data["number_of_people"], 2)
         self.assertEqual(float(response.data["price_per_person"]), 100.0)
         self.assertEqual(float(response.data["total_price"]), 200.0)
-        self.assertEqual(float(response.data["prepayment_amount"]), 60.0)
 
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
@@ -281,7 +276,6 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(response.data["number_of_people"], 4)
         self.assertEqual(float(response.data["price_per_person"]), 100.0)
         self.assertEqual(float(response.data["total_price"]), 400.0)
-        self.assertEqual(float(response.data["prepayment_amount"]), 120.0)
 
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
@@ -397,88 +391,6 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(second.status_code, status.HTTP_201_CREATED)
         self.assertNotEqual(first.data["id"], second.data["id"])
         self.assertEqual(Booking.objects.count(), 2)
-
-    def _signed_webhook(self, payload, secret="test-webhook-secret"):
-        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
-        signature = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
-        return self.client.generic(
-            "POST",
-            self.webhook_url,
-            body,
-            content_type="application/json",
-            HTTP_X_FINIKPAY_SIGNATURE=signature,
-        )
-
-    @override_settings(FINIKPAY_WEBHOOK_SECRET="test-webhook-secret")
-    def test_paid_webhook_is_idempotent(self):
-        booking_response = self.client.post(
-            self.booking_url,
-            {
-                "tour": self.group_tour.id,
-                "tour_date": self.group_tour_date_available.id,
-                "customer_name": "Paid Client",
-                "customer_contact": "+996700123456",
-                "adults": 2,
-                "children": 0,
-            },
-            format="json",
-        )
-        payment = Payment.objects.get(pk=booking_response.data["payment"]["id"])
-        self._reset_mocks()
-        payload = {
-            "reference_id": str(payment.id),
-            "id": payment.provider_payment_id,
-            "status": "paid",
-        }
-
-        first = self._signed_webhook(payload)
-        second = self._signed_webhook(payload)
-
-        self.assertEqual(first.status_code, status.HTTP_200_OK)
-        self.assertEqual(second.status_code, status.HTTP_200_OK)
-        self.assertTrue(first.data["changed"])
-        self.assertFalse(second.data["changed"])
-        self.group_tour_date_available.refresh_from_db()
-        self.assertEqual(self.group_tour_date_available.available_spots, 3)
-        self.assertEqual(self.mock_tg.call_count, 1)
-        self.assertEqual(self.mock_email.call_count, 1)
-
-    @override_settings(FINIKPAY_WEBHOOK_SECRET="test-webhook-secret")
-    def test_webhook_rejects_invalid_signature(self):
-        response = self.client.post(
-            self.webhook_url,
-            {"reference_id": "1", "status": "paid"},
-            format="json",
-            HTTP_X_FINIKPAY_SIGNATURE="invalid",
-        )
-
-        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
-
-    @override_settings(FINIKPAY_WEBHOOK_SECRET="test-webhook-secret")
-    def test_webhook_rejects_provider_payment_id_mismatch(self):
-        booking_response = self.client.post(
-            self.booking_url,
-            {
-                "tour": self.group_tour.id,
-                "tour_date": self.group_tour_date_available.id,
-                "customer_name": "Mismatch Client",
-                "customer_contact": "+996700123457",
-                "adults": 1,
-                "children": 0,
-            },
-            format="json",
-        )
-        payment = Payment.objects.get(pk=booking_response.data["payment"]["id"])
-
-        response = self._signed_webhook({
-            "reference_id": str(payment.id),
-            "id": "different-provider-id",
-            "status": "paid",
-        })
-
-        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
-        payment.refresh_from_db()
-        self.assertEqual(payment.status, Payment.STATUS_PENDING)
 
     # ------------------------------------------------------------------ #
     # КОНТАКТНЫЕ ЗАЯВКИ                                                    #
@@ -688,16 +600,8 @@ class ConcurrentIntegrityTests(TransactionTestCase):
                 "children": 0,
                 "comment": "",
             }
-            with patch("nomads_area_app.services.get_payment_provider") as provider:
-                provider.return_value.create_payment.return_value = {
-                    "provider_payment_id": "",
-                    "payment_url": "",
-                }
-                booking, payment, duplicate = create_booking_with_payment_service(
-                    data,
-                    tour_date=tour_date,
-                )
-            return booking.pk, payment.pk, duplicate
+            booking, duplicate = create_booking_service(data, tour_date=tour_date)
+            return booking.pk, duplicate
         finally:
             connections.close_all()
 
@@ -713,8 +617,7 @@ class ConcurrentIntegrityTests(TransactionTestCase):
 
         self.assertEqual({result[0] for result in results}, {Booking.objects.get().pk})
         self.assertEqual(Booking.objects.count(), 1)
-        self.assertEqual(Payment.objects.count(), 1)
-        self.assertEqual(sorted(result[2] for result in results), [False, True])
+        self.assertEqual(sorted(result[1] for result in results), [False, True])
 
     def _run_concurrently(self, callback):
         barrier = Barrier(2)
@@ -754,40 +657,53 @@ class ConcurrentIntegrityTests(TransactionTestCase):
         self.assertEqual({request.pk for request, _ in results}, {ContactRequest.objects.get().pk})
         self.assertEqual(sorted(duplicate for _, duplicate in results), [False, True])
 
-    def test_concurrent_payments_cannot_overbook(self):
-        _, first_payment_id, _ = self._create_booking("+996700000001", 3)
-        _, second_payment_id, _ = self._create_booking("+996700000002", 3)
+    def test_concurrent_confirmations_cannot_overbook(self):
+        first_booking_id, _ = self._create_booking("+996700000001", 3)
+        second_booking_id, _ = self._create_booking("+996700000002", 3)
         barrier = Barrier(2)
 
-        def pay(payment_id):
+        def confirm(booking_id):
             close_old_connections()
             try:
                 barrier.wait()
-                payment = Payment.objects.get(pk=payment_id)
+                booking = Booking.objects.get(pk=booking_id)
                 try:
-                    payment.mark_paid_and_confirm_booking({"status": "paid"})
-                    return "paid"
+                    booking.confirm_and_reserve()
+                    return "confirmed"
                 except DjangoValidationError:
                     return "rejected"
             finally:
                 connections.close_all()
 
         with ThreadPoolExecutor(max_workers=2) as executor:
-            outcomes = list(executor.map(pay, [first_payment_id, second_payment_id]))
+            outcomes = list(executor.map(confirm, [first_booking_id, second_booking_id]))
 
         self.tour_date.refresh_from_db()
-        self.assertEqual(sorted(outcomes), ["paid", "rejected"])
+        self.assertEqual(sorted(outcomes), ["confirmed", "rejected"])
         self.assertEqual(self.tour_date.available_spots, 2)
-        self.assertEqual(Payment.objects.filter(status=Payment.STATUS_PAID).count(), 1)
+        self.assertEqual(Booking.objects.filter(status=Booking.STATUS_CONFIRMED).count(), 1)
 
-    def test_payment_state_transitions_are_idempotent(self):
-        _, payment_id, _ = self._create_booking("+996700000003", 1)
-        payment = Payment.objects.get(pk=payment_id)
+    def test_booking_confirmation_is_idempotent(self):
+        booking_id, _ = self._create_booking("+996700000003", 1)
+        booking = Booking.objects.get(pk=booking_id)
 
-        _, changed_first = payment.mark_failed({"status": "failed"})
-        _, changed_second = payment.mark_failed({"status": "failed"})
+        booking.confirm_and_reserve()
+        booking.confirm_and_reserve()
 
-        self.assertTrue(changed_first)
-        self.assertFalse(changed_second)
-        with self.assertRaises(DjangoValidationError):
-            payment.mark_paid_and_confirm_booking({"status": "paid"})
+        self.tour_date.refresh_from_db()
+        self.assertEqual(self.tour_date.available_spots, 4)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.STATUS_CONFIRMED)
+
+    def test_confirmed_booking_cancellation_restores_spots_once(self):
+        booking_id, _ = self._create_booking("+996700000004", 2)
+        booking = Booking.objects.get(pk=booking_id)
+
+        booking.confirm_and_reserve()
+        booking.cancel()
+        booking.cancel()
+
+        self.tour_date.refresh_from_db()
+        self.assertEqual(self.tour_date.available_spots, 5)
+        booking.refresh_from_db()
+        self.assertEqual(booking.status, Booking.STATUS_CANCELLED)

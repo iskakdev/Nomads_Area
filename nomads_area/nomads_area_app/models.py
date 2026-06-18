@@ -325,7 +325,6 @@ class Booking(models.Model):
     extra_services = models.ManyToManyField(ExtraService, blank=True, related_name="bookings", verbose_name="Дополнительные услуги")
     price_per_person = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Цена за чел")
     total_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Итого")
-    prepayment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Предоплата")
     currency = models.CharField(max_length=8, default="USD", verbose_name="Валюта")
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, verbose_name="Статус")
     confirmed_at = models.DateTimeField(null=True, blank=True, verbose_name="Подтверждено")
@@ -350,104 +349,49 @@ class Booking(models.Model):
     def is_group_booking(self):
         return self.tour.tour_type == Tour.TOUR_TYPE_GROUP
 
-    def confirm_and_reserve(self, locked_booking=None):
-        booking = locked_booking or Booking.objects.select_for_update().select_related("tour", "tour_date").get(pk=self.pk)
-        if booking.status == Booking.STATUS_CONFIRMED:
-            return booking
-        if booking.status != Booking.STATUS_PENDING:
-            raise ValidationError(f"Нельзя подтвердить '{booking.status}'")
-
-        if booking.is_group_booking and booking.tour_date_id:
-            tour_date = TourDate.objects.select_for_update().get(pk=booking.tour_date_id)
-            if booking.number_of_people > tour_date.available_spots:
-                raise ValidationError(f"Мест: {tour_date.available_spots}")
-            tour_date.available_spots -= booking.number_of_people
-            tour_date.save(update_fields=["available_spots"])
-
-        booking.status = Booking.STATUS_CONFIRMED
-        booking.confirmed_at = timezone.now()
-        booking.save(update_fields=["status", "confirmed_at"])
-        return booking
-
-    def cancel(self):
-        if self.status == Booking.STATUS_CANCELLED:
-            return self
-        if self.status == Booking.STATUS_CONFIRMED and self.payments.filter(status=Payment.STATUS_PAID).exists():
-            raise ValidationError("Нельзя отменить оплаченную бронь.")
-        self.status = Booking.STATUS_CANCELLED
-        self.cancelled_at = timezone.now()
-        self.save(update_fields=["status", "cancelled_at"])
-        return self
-
-
-class Payment(models.Model):
-    STATUS_PENDING = "pending"
-    STATUS_PAID = "paid"
-    STATUS_FAILED = "failed"
-    STATUS_REFUNDED = "refunded"
-    PROVIDER_FINIKPAY = "finikpay"
-    PROVIDER_MANUAL = "manual"
-
-    STATUS_CHOICES = (
-        (STATUS_PENDING, "Ожидает"), (STATUS_PAID, "Оплачено"),
-        (STATUS_FAILED, "Ошибка"), (STATUS_REFUNDED, "Возврат"),
-    )
-    PROVIDER_CHOICES = ((PROVIDER_FINIKPAY, "FinikPay"), (PROVIDER_MANUAL, "Ручной"))
-
-    booking = models.ForeignKey(Booking, on_delete=models.PROTECT, related_name="payments", verbose_name="Бронь")
-    provider = models.CharField(max_length=32, choices=PROVIDER_CHOICES, default=PROVIDER_FINIKPAY, verbose_name="Провайдер")
-    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма")
-    currency = models.CharField(max_length=8, default="USD", verbose_name="Валюта")
-    provider_payment_id = models.CharField(max_length=128, blank=True, default="", db_index=True, verbose_name="ID провайдера")
-    payment_url = models.URLField(max_length=512, blank=True, default="", verbose_name="Ссылка")
-    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_PENDING, verbose_name="Статус")
-    provider_payload = models.JSONField(default=dict, blank=True, verbose_name="Payload")
-    paid_at = models.DateTimeField(null=True, blank=True, verbose_name="Оплачено")
-    failed_at = models.DateTimeField(null=True, blank=True, verbose_name="Ошибка")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
-    updated_at = models.DateTimeField(auto_now=True, verbose_name="Обновлён")
-
-    class Meta:
-        ordering = ["-created_at"]
-        verbose_name = "Платёж"
-        verbose_name_plural = "Платежи"
-        indexes = [models.Index(fields=["provider", "provider_payment_id"], name="payment_provider_idx")]
-
-    def __str__(self):
-        return f"Платёж #{self.id}"
-
-    def mark_paid_and_confirm_booking(self, provider_payload=None):
-        provider_payload = provider_payload or {}
+    def confirm_and_reserve(self):
         with transaction.atomic():
-            payment = (
-                Payment.objects.select_for_update(of=("self",))
-                .select_related("booking", "booking__tour", "booking__tour_date")
+            booking = (
+                Booking.objects.select_for_update(of=("self",))
+                .select_related("tour", "tour_date")
                 .get(pk=self.pk)
             )
-            if payment.status == Payment.STATUS_PAID:
-                return payment, False
-            if payment.status != Payment.STATUS_PENDING:
-                raise ValidationError(f"Статус '{payment.status}'")
+            if booking.status == Booking.STATUS_CONFIRMED:
+                return booking
+            if booking.status != Booking.STATUS_PENDING:
+                raise ValidationError(f"Нельзя подтвердить '{booking.status}'")
 
-            payment.booking.confirm_and_reserve(locked_booking=payment.booking)
-            payment.status = Payment.STATUS_PAID
-            payment.paid_at = timezone.now()
-            payment.provider_payload = provider_payload
-            payment.save(update_fields=["status", "paid_at", "provider_payload", "updated_at"])
-            return payment, True
+            if booking.is_group_booking and booking.tour_date_id:
+                tour_date = TourDate.objects.select_for_update().get(pk=booking.tour_date_id)
+                if booking.number_of_people > tour_date.available_spots:
+                    raise ValidationError(f"Мест: {tour_date.available_spots}")
+                tour_date.available_spots -= booking.number_of_people
+                tour_date.save(update_fields=["available_spots"])
 
-    def mark_failed(self, provider_payload=None):
+            booking.status = Booking.STATUS_CONFIRMED
+            booking.confirmed_at = timezone.now()
+            booking.save(update_fields=["status", "confirmed_at"])
+            return booking
+
+    def cancel(self):
         with transaction.atomic():
-            payment = Payment.objects.select_for_update().get(pk=self.pk)
-            if payment.status == Payment.STATUS_FAILED:
-                return payment, False
-            if payment.status != Payment.STATUS_PENDING:
-                raise ValidationError(f"Статус '{payment.status}'")
-            payment.status = Payment.STATUS_FAILED
-            payment.failed_at = timezone.now()
-            payment.provider_payload = provider_payload or {}
-            payment.save(update_fields=["status", "failed_at", "provider_payload", "updated_at"])
-            return payment, True
+            booking = (
+                Booking.objects.select_for_update(of=("self",))
+                .select_related("tour", "tour_date")
+                .get(pk=self.pk)
+            )
+            if booking.status == Booking.STATUS_CANCELLED:
+                return booking
+
+            if booking.status == Booking.STATUS_CONFIRMED and booking.is_group_booking and booking.tour_date_id:
+                tour_date = TourDate.objects.select_for_update().get(pk=booking.tour_date_id)
+                tour_date.available_spots += booking.number_of_people
+                tour_date.save(update_fields=["available_spots"])
+
+            booking.status = Booking.STATUS_CANCELLED
+            booking.cancelled_at = timezone.now()
+            booking.save(update_fields=["status", "cancelled_at"])
+            return booking
 
 
 class QuizQuestion(models.Model):

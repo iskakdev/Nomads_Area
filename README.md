@@ -172,12 +172,6 @@ POST /api/ru/quiz/progress/
 PUT  /api/ru/quiz/progress/save/{session_key}/
 ```
 
-### Оплата
-
-```
-POST /api/ru/payments/finikpay/webhook/
-```
-
 ### Документация
 
 ```
@@ -223,14 +217,12 @@ GET /api/ru/tours/?search=озеро&ordering=-created_at
        |
   Расчёт цены на сервере
   price_per_person x people = total_price
-  total_price x 30% = prepayment_amount
        |
   [transaction.atomic]
-  Booking(status=pending) + Payment(status=pending)
+  Booking(status=pending)
   [/transaction.atomic]
        |
   Менеджер подтверждает вручную через Admin
-  или webhook от платёжного провайдера
        |
   [transaction.atomic + select_for_update]
   Booking(status=confirmed)
@@ -270,7 +262,6 @@ Nomads_Area/
     +-- urls.py
     +-- filters.py
     +-- services.py
-    +-- payment_providers.py
     +-- notifications.py
     +-- tasks.py
     +-- translation.py
@@ -294,9 +285,6 @@ Nomads_Area/
 | `TELEGRAM_CHAT_ID` | ID чата для уведомлений |
 | `EMAIL_HOST_USER` | Gmail аккаунт |
 | `EMAIL_HOST_PASSWORD` | App password Gmail |
-| `FINIKPAY_API_KEY` | API ключ (зарезервировано) |
-| `FINIKPAY_WEBHOOK_SECRET` | Секрет webhook (зарезервировано) |
-| `FINIKPAY_RETURN_URL` | URL после оплаты (зарезервировано) |
 | `API_DOCS_ENABLED` | Включить Swagger (`True`/`False`) |
 | `CORS_ALLOWED_ORIGINS` | Разрешённые origins фронтенда |
 | `CSRF_TRUSTED_ORIGINS` | Доверенные origins для CSRF |
