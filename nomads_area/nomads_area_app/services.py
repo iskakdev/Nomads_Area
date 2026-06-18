@@ -1,8 +1,10 @@
 import hashlib
+import json
 import logging
+import uuid
 from datetime import timedelta
 from decimal import Decimal, ROUND_HALF_UP
-from django.db import transaction
+from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework import serializers
 from .exceptions import InsufficientSpotsError
@@ -29,6 +31,34 @@ def calculate_booking_price(tour, total_people, price_tier=None):
         "total_price": total_price,
         "prepayment_amount": quantize_money(total_price * PREPAYMENT_PERCENT),
     }
+
+
+def _normalize_text(value):
+    return " ".join(str(value or "").strip().lower().split())
+
+
+def _fingerprint(payload):
+    canonical = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
+
+
+def _acquire_fingerprint_lock(fingerprint):
+    """Serialize equal submissions across all Gunicorn workers."""
+    if connection.vendor != "postgresql":
+        return
+    lock_id = int(fingerprint[:16], 16)
+    if lock_id >= 2**63:
+        lock_id -= 2**64
+    with connection.cursor() as cursor:
+        cursor.execute("SELECT pg_advisory_xact_lock(%s)", [lock_id])
+
+
+def _recent_duplicate(model, fingerprint):
+    window = timezone.now() - timedelta(minutes=DEDUP_WINDOW_MINUTES)
+    return model.objects.filter(
+        request_fingerprint=fingerprint,
+        created_at__gte=window,
+    ).order_by("-created_at").first()
 
 
 def _create_booking_and_payment_db(validated_data, price_data, tour_date):
@@ -67,25 +97,34 @@ def _create_booking_and_payment_db(validated_data, price_data, tour_date):
 
 
 def create_booking_with_payment_service(validated_data, price_tier=None, tour_date=None):
+    validated_data = validated_data.copy()
     tour = validated_data["tour"]
-    customer_contact = validated_data["customer_contact"]
     total_people = validated_data["adults"] + validated_data.get("children", 0)
     price_data = calculate_booking_price(tour=tour, total_people=total_people, price_tier=price_tier)
-    created_at = timezone.now()
-
-    dedup_key = f"{tour.id}:{customer_contact.lower().strip()}:{created_at.strftime('%Y-%m-%d-%H')}"
-    dedup_hash = hashlib.sha256(dedup_key.encode()).hexdigest()[:64]
-
-    # Добавляем dedup_hash в данные для сохранения в БД
-    validated_data["dedup_hash"] = dedup_hash
+    extra_service_ids = sorted(service.pk for service in validated_data.get("extra_services", []))
+    fingerprint = _fingerprint({
+        "tour": tour.pk,
+        "tour_date": tour_date.pk if tour_date else None,
+        "preferred_start_date": validated_data.get("preferred_start_date"),
+        "preferred_end_date": validated_data.get("preferred_end_date"),
+        "customer_name": _normalize_text(validated_data.get("customer_name")),
+        "customer_contact": _normalize_text(validated_data.get("customer_contact")),
+        "adults": validated_data["adults"],
+        "children": validated_data.get("children", 0),
+        "comment": _normalize_text(validated_data.get("comment")),
+        "extra_services": extra_service_ids,
+    })
+    validated_data["customer_contact"] = str(validated_data["customer_contact"]).strip()
+    validated_data["request_fingerprint"] = fingerprint
+    validated_data["dedup_hash"] = _fingerprint({"fingerprint": fingerprint, "nonce": uuid.uuid4().hex})
 
     # Шаг 1: только БД, никакого IO
     with transaction.atomic():
-        try:
-            existing = Booking.objects.select_for_update().get(dedup_hash=dedup_hash)
+        _acquire_fingerprint_lock(fingerprint)
+        existing = _recent_duplicate(Booking, fingerprint)
+        if existing:
             return existing, existing.payments.order_by("-created_at").first(), True
-        except Booking.DoesNotExist:
-            booking, payment = _create_booking_and_payment_db(validated_data, price_data, tour_date)
+        booking, payment = _create_booking_and_payment_db(validated_data, price_data, tour_date)
 
     # Шаг 2: HTTP-запрос к провайдеру строго вне транзакции
     try:
@@ -96,7 +135,7 @@ def create_booking_with_payment_service(validated_data, price_tier=None, tour_da
         payment.save(update_fields=["provider_payment_id", "payment_url", "updated_at"])
     except Exception as e:
         logger.exception("Payment provider error: %s", e)
-        payment.mark_failed()
+        payment, _ = payment.mark_failed()
 
     return booking, payment, False
 
@@ -110,7 +149,13 @@ def handle_payment_webhook_service(payload):
     parsed = provider.parse_webhook(payload)
     payment = Payment.objects.select_related("booking", "booking__tour", "booking__tour_date").get(pk=parsed["payment_id"])
 
-    if parsed["provider_payment_id"] and payment.provider_payment_id != parsed["provider_payment_id"]:
+    if (
+        parsed["provider_payment_id"]
+        and payment.provider_payment_id
+        and payment.provider_payment_id != parsed["provider_payment_id"]
+    ):
+        raise serializers.ValidationError("Provider payment ID mismatch.")
+    if parsed["provider_payment_id"] and not payment.provider_payment_id:
         payment.provider_payment_id = parsed["provider_payment_id"]
         payment.save(update_fields=["provider_payment_id", "updated_at"])
 
@@ -118,8 +163,8 @@ def handle_payment_webhook_service(payload):
         payment, changed = confirm_payment_service(payment=payment, provider_payload=payload)
         return {"payment": payment, "changed": changed}
     if parsed["status"] in {"failed", "cancelled", "canceled", "error"}:
-        payment.mark_failed(provider_payload=payload)
-        return {"payment": payment, "changed": True}
+        payment, changed = payment.mark_failed(provider_payload=payload)
+        return {"payment": payment, "changed": changed}
     return {"payment": payment, "changed": False}
 
 
@@ -154,22 +199,59 @@ def update_quiz_progress_service(progress, validated_data):
     return progress
 
 
-def _find_duplicate(model, **kwargs):
-    window = timezone.now() - timedelta(minutes=DEDUP_WINDOW_MINUTES)
-    kwargs["created_at__gte"] = window
-    return model.objects.filter(**kwargs).first()
-
-
 def create_quiz_lead_service(validated_data):
-    dup = _find_duplicate(QuizLead, customer_contact=validated_data["customer_contact"])
-    return (dup, True) if dup else (QuizLead.objects.create(**validated_data), False)
+    validated_data = validated_data.copy()
+    validated_data["customer_contact"] = str(validated_data["customer_contact"]).strip()
+    fingerprint = _fingerprint({
+        "customer_name": _normalize_text(validated_data.get("customer_name")),
+        "customer_contact": _normalize_text(validated_data["customer_contact"]),
+        "answers_data": validated_data.get("answers_data") or {},
+    })
+    with transaction.atomic():
+        _acquire_fingerprint_lock(fingerprint)
+        duplicate = _recent_duplicate(QuizLead, fingerprint)
+        if duplicate:
+            return duplicate, True
+        return QuizLead.objects.create(request_fingerprint=fingerprint, **validated_data), False
 
 
 def create_transport_request_service(validated_data):
-    dup = _find_duplicate(TransportRequest, vehicle=validated_data["vehicle"], customer_phone=validated_data["customer_phone"])
-    return (dup, True) if dup else (TransportRequest.objects.create(total_price=validated_data["vehicle"].price, status="pending", **validated_data), False)
+    validated_data = validated_data.copy()
+    validated_data["customer_phone"] = str(validated_data["customer_phone"]).strip()
+    fingerprint = _fingerprint({
+        "vehicle": validated_data["vehicle"].pk,
+        "customer_name": _normalize_text(validated_data.get("customer_name")),
+        "customer_phone": _normalize_text(validated_data["customer_phone"]),
+        "passengers": validated_data.get("passengers", 1),
+        "bags": validated_data.get("bags", 0),
+        "comment": _normalize_text(validated_data.get("comment")),
+    })
+    with transaction.atomic():
+        _acquire_fingerprint_lock(fingerprint)
+        duplicate = _recent_duplicate(TransportRequest, fingerprint)
+        if duplicate:
+            return duplicate, True
+        return TransportRequest.objects.create(
+            request_fingerprint=fingerprint,
+            total_price=validated_data["vehicle"].price,
+            status="pending",
+            **validated_data,
+        ), False
 
 
 def create_contact_request_service(validated_data):
-    dup = _find_duplicate(ContactRequest, phone_or_email=validated_data["phone_or_email"], message=validated_data["message"])
-    return (dup, True) if dup else (ContactRequest.objects.create(**validated_data), False)
+    validated_data = validated_data.copy()
+    validated_data["phone_or_email"] = str(validated_data["phone_or_email"]).strip()
+    fingerprint = _fingerprint({
+        "name": _normalize_text(validated_data.get("name")),
+        "phone_or_email": _normalize_text(validated_data["phone_or_email"]),
+        "subject": _normalize_text(validated_data.get("subject")),
+        "message": _normalize_text(validated_data.get("message")),
+        "source": _normalize_text(validated_data.get("source")),
+    })
+    with transaction.atomic():
+        _acquire_fingerprint_lock(fingerprint)
+        duplicate = _recent_duplicate(ContactRequest, fingerprint)
+        if duplicate:
+            return duplicate, True
+        return ContactRequest.objects.create(request_fingerprint=fingerprint, **validated_data), False

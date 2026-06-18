@@ -1,14 +1,29 @@
+import hashlib
+import hmac
+import json
 from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
+from threading import Barrier
 from unittest.mock import patch
 
-from django.test import SimpleTestCase
+from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db import close_old_connections, connections
+from django.test import SimpleTestCase, TransactionTestCase, override_settings
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APITestCase
 
+from .notifications import enqueue_task_safely
+from .services import (
+    create_booking_with_payment_service,
+    create_contact_request_service,
+    create_quiz_lead_service,
+    create_transport_request_service,
+)
 from .throttles import FormSubmitThrottle
 from .models import (
     Booking, City, ContactRequest, Country,
-    QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
+    Payment, QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
     ExtraService, Tour, TourDate, TourPriceTier, TransferRoute,
     TransportRequest, VehicleType,
 )
@@ -21,6 +36,16 @@ class FormSubmitThrottleTests(SimpleTestCase):
     def test_rate_comes_from_drf_settings(self):
         with patch.dict(FormSubmitThrottle.THROTTLE_RATES, {"forms": "17/minute"}):
             self.assertEqual(FormSubmitThrottle().get_rate(), "17/minute")
+
+
+class NotificationSafetyTests(SimpleTestCase):
+    def test_enqueue_failure_is_swallowed(self):
+        task = type("Task", (), {"name": "broken", "delay": lambda self, *args: (_ for _ in ()).throw(ConnectionError("down"))})()
+
+        with self.assertLogs("nomads_area_app.notifications", level="ERROR"):
+            result = enqueue_task_safely(task, "payload")
+
+        self.assertIsNone(result)
 
 
 class BaseNoSpamTestCase(APITestCase):
@@ -132,6 +157,7 @@ class ProjectTests(BaseNoSpamTestCase):
         self.quiz_progress_url = f"{API}/quiz/progress/"
         self.quiz_questions_url = f"{API}/quiz/questions/"
         self.tours_url = f"{API}/tours/"
+        self.webhook_url = f"{API}/payments/finikpay/webhook/"
 
     def _reset_mocks(self):
         self.mock_tg.reset_mock()
@@ -346,6 +372,129 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
 
+    def test_booking_changed_payload_is_not_duplicate(self):
+        """Тот же клиент может создать другую бронь в течение пяти минут."""
+        payload = {
+            "tour": self.group_tour.id,
+            "tour_date": self.group_tour_date_available.id,
+            "customer_name": "Повторный клиент",
+            "customer_contact": "+996900123123",
+            "adults": 1,
+            "children": 0,
+        }
+
+        first = self.client.post(self.booking_url, payload, format="json")
+        payload["adults"] = 2
+        second = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertNotEqual(first.data["id"], second.data["id"])
+        self.assertEqual(Booking.objects.count(), 2)
+        self.assertEqual(self.mock_tg.call_count, 2)
+
+    def test_booking_deduplication_expires_after_window(self):
+        payload = {
+            "tour": self.group_tour.id,
+            "tour_date": self.group_tour_date_available.id,
+            "customer_name": "Returning Client",
+            "customer_contact": "+996900123124",
+            "adults": 1,
+            "children": 0,
+        }
+
+        first = self.client.post(self.booking_url, payload, format="json")
+        Booking.objects.filter(pk=first.data["id"]).update(
+            created_at=timezone.now() - timedelta(minutes=6)
+        )
+        second = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertNotEqual(first.data["id"], second.data["id"])
+        self.assertEqual(Booking.objects.count(), 2)
+
+    def _signed_webhook(self, payload, secret="test-webhook-secret"):
+        body = json.dumps(payload, separators=(",", ":")).encode("utf-8")
+        signature = hmac.new(secret.encode("utf-8"), body, hashlib.sha256).hexdigest()
+        return self.client.generic(
+            "POST",
+            self.webhook_url,
+            body,
+            content_type="application/json",
+            HTTP_X_FINIKPAY_SIGNATURE=signature,
+        )
+
+    @override_settings(FINIKPAY_WEBHOOK_SECRET="test-webhook-secret")
+    def test_paid_webhook_is_idempotent(self):
+        booking_response = self.client.post(
+            self.booking_url,
+            {
+                "tour": self.group_tour.id,
+                "tour_date": self.group_tour_date_available.id,
+                "customer_name": "Paid Client",
+                "customer_contact": "+996700123456",
+                "adults": 2,
+                "children": 0,
+            },
+            format="json",
+        )
+        payment = Payment.objects.get(pk=booking_response.data["payment"]["id"])
+        self._reset_mocks()
+        payload = {
+            "reference_id": str(payment.id),
+            "id": payment.provider_payment_id,
+            "status": "paid",
+        }
+
+        first = self._signed_webhook(payload)
+        second = self._signed_webhook(payload)
+
+        self.assertEqual(first.status_code, status.HTTP_200_OK)
+        self.assertEqual(second.status_code, status.HTTP_200_OK)
+        self.assertTrue(first.data["changed"])
+        self.assertFalse(second.data["changed"])
+        self.group_tour_date_available.refresh_from_db()
+        self.assertEqual(self.group_tour_date_available.available_spots, 3)
+        self.assertEqual(self.mock_tg.call_count, 1)
+        self.assertEqual(self.mock_email.call_count, 1)
+
+    @override_settings(FINIKPAY_WEBHOOK_SECRET="test-webhook-secret")
+    def test_webhook_rejects_invalid_signature(self):
+        response = self.client.post(
+            self.webhook_url,
+            {"reference_id": "1", "status": "paid"},
+            format="json",
+            HTTP_X_FINIKPAY_SIGNATURE="invalid",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_403_FORBIDDEN)
+
+    @override_settings(FINIKPAY_WEBHOOK_SECRET="test-webhook-secret")
+    def test_webhook_rejects_provider_payment_id_mismatch(self):
+        booking_response = self.client.post(
+            self.booking_url,
+            {
+                "tour": self.group_tour.id,
+                "tour_date": self.group_tour_date_available.id,
+                "customer_name": "Mismatch Client",
+                "customer_contact": "+996700123457",
+                "adults": 1,
+                "children": 0,
+            },
+            format="json",
+        )
+        payment = Payment.objects.get(pk=booking_response.data["payment"]["id"])
+
+        response = self._signed_webhook({
+            "reference_id": str(payment.id),
+            "id": "different-provider-id",
+            "status": "paid",
+        })
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        payment.refresh_from_db()
+        self.assertEqual(payment.status, Payment.STATUS_PENDING)
+
     # ------------------------------------------------------------------ #
     # ТРАНСФЕРЫ                                                            #
     # ------------------------------------------------------------------ #
@@ -367,6 +516,11 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(TransportRequest.objects.count(), 1)
+        request = TransportRequest.objects.get()
+        self.assertEqual(request.passengers, 2)
+        self.assertEqual(request.bags, 1)
+        self.assertEqual(response.data["passengers"], 2)
+        self.assertEqual(response.data["bags"], 1)
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
 
@@ -389,6 +543,41 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
         self.assertEqual(TransportRequest.objects.count(), 1)
         self.assertEqual(self.mock_tg.call_count, 1)
+
+    def test_transport_changed_comment_is_not_duplicate(self):
+        payload = {
+            "vehicle": self.vehicle.id,
+            "customer_phone": "+996555999888",
+            "customer_name": "Client",
+            "passengers": 2,
+            "bags": 1,
+            "comment": "Airport",
+        }
+
+        first = self.client.post(self.transport_url, payload, format="json")
+        payload["comment"] = "Hotel"
+        second = self.client.post(self.transport_url, payload, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(TransportRequest.objects.count(), 2)
+
+    def test_transport_changed_passenger_count_is_not_duplicate(self):
+        payload = {
+            "vehicle": self.vehicle.id,
+            "customer_phone": "+996555999888",
+            "customer_name": "Client",
+            "passengers": 1,
+            "bags": 1,
+        }
+
+        first = self.client.post(self.transport_url, payload, format="json")
+        payload["passengers"] = 2
+        second = self.client.post(self.transport_url, payload, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(TransportRequest.objects.count(), 2)
 
     def test_transport_overbooking_passengers_fails(self):
         """Пассажиров больше чем мест в авто — ошибка."""
@@ -444,6 +633,22 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(response2.status_code, status.HTTP_201_CREATED)
         self.assertEqual(ContactRequest.objects.count(), 1)
         self.assertEqual(self.mock_tg.call_count, 1)
+
+    def test_contact_changed_message_is_not_duplicate(self):
+        payload = {
+            "name": "Contact Name",
+            "phone_or_email": "contact@test.com",
+            "subject": "Hello",
+            "message": "First message",
+        }
+
+        first = self.client.post(self.contact_url, payload, format="json")
+        payload["message"] = "Second message"
+        second = self.client.post(self.contact_url, payload, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(ContactRequest.objects.count(), 2)
 
     # ------------------------------------------------------------------ #
     # КВИЗ                                                                 #
@@ -506,6 +711,21 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(QuizLead.objects.count(), 1)
         self.assertEqual(self.mock_tg.call_count, 1)
 
+    def test_quiz_changed_answers_are_not_duplicate(self):
+        payload = {
+            "customer_name": "Quiz User",
+            "customer_contact": "tguser123",
+            "answers_data": {"Region": "Kyrgyzstan"},
+        }
+
+        first = self.client.post(self.quiz_submit_url, payload, format="json")
+        payload["answers_data"] = {"Region": "Uzbekistan"}
+        second = self.client.post(self.quiz_submit_url, payload, format="json")
+
+        self.assertEqual(first.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(second.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(QuizLead.objects.count(), 2)
+
     # ------------------------------------------------------------------ #
     # ФИЛЬТРЫ ТУРОВ                                                        #
     # ------------------------------------------------------------------ #
@@ -540,3 +760,176 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertIn(self.group_tour.id, ids)
         self.assertIn(self.private_tour.id, ids)
+
+
+class ConcurrentIntegrityTests(TransactionTestCase):
+    reset_sequences = True
+
+    def setUp(self):
+        self.country = Country.objects.create(country_name="Кыргызстан")
+        self.city = City.objects.create(country=self.country, city_name="Бишкек")
+        self.tour = Tour.objects.create(
+            title="Concurrent Tour",
+            tour_type="group",
+            country=self.country,
+            city=self.city,
+            duration_days=3,
+            price=100,
+            currency="USD",
+            description="Test",
+            included="Test",
+            is_active=True,
+        )
+        self.tour_date = TourDate.objects.create(
+            tour=self.tour,
+            start_date=date.today() + timedelta(days=10),
+            end_date=date.today() + timedelta(days=13),
+            available_spots=5,
+        )
+        route = TransferRoute.objects.create(
+            departure_point="Bishkek",
+            arrival_point="Karakol",
+        )
+        self.vehicle = VehicleType.objects.create(
+            route=route,
+            category="minivan",
+            price=500,
+            seats=6,
+            bags=2,
+        )
+
+    def _create_booking(self, contact, adults):
+        close_old_connections()
+        try:
+            tour = Tour.objects.get(pk=self.tour.pk)
+            tour_date = TourDate.objects.get(pk=self.tour_date.pk)
+            data = {
+                "tour": tour,
+                "tour_date": tour_date,
+                "customer_name": "Concurrent Client",
+                "customer_contact": contact,
+                "adults": adults,
+                "children": 0,
+                "comment": "",
+            }
+            with patch("nomads_area_app.services.get_payment_provider") as provider:
+                provider.return_value.create_payment.return_value = {
+                    "provider_payment_id": "",
+                    "payment_url": "",
+                }
+                booking, payment, duplicate = create_booking_with_payment_service(
+                    data,
+                    tour_date=tour_date,
+                )
+            return booking.pk, payment.pk, duplicate
+        finally:
+            connections.close_all()
+
+    def test_concurrent_identical_bookings_create_one_row(self):
+        barrier = Barrier(2)
+
+        def submit():
+            barrier.wait()
+            return self._create_booking("+996700000000", 1)
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            results = list(executor.map(lambda _: submit(), range(2)))
+
+        self.assertEqual({result[0] for result in results}, {Booking.objects.get().pk})
+        self.assertEqual(Booking.objects.count(), 1)
+        self.assertEqual(Payment.objects.count(), 1)
+        self.assertEqual(sorted(result[2] for result in results), [False, True])
+
+    def _run_concurrently(self, callback):
+        barrier = Barrier(2)
+
+        def submit():
+            close_old_connections()
+            try:
+                barrier.wait()
+                return callback()
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            return list(executor.map(lambda _: submit(), range(2)))
+
+    def test_concurrent_quiz_leads_create_one_row(self):
+        results = self._run_concurrently(lambda: create_quiz_lead_service({
+            "customer_name": "Quiz Client",
+            "customer_contact": "@quiz-client",
+            "answers_data": {"Region": "Kyrgyzstan"},
+        }))
+
+        self.assertEqual(QuizLead.objects.count(), 1)
+        self.assertEqual({lead.pk for lead, _ in results}, {QuizLead.objects.get().pk})
+        self.assertEqual(sorted(duplicate for _, duplicate in results), [False, True])
+
+    def test_concurrent_transport_requests_create_one_row(self):
+        def create_request():
+            vehicle = VehicleType.objects.get(pk=self.vehicle.pk)
+            return create_transport_request_service({
+                "vehicle": vehicle,
+                "customer_name": "Transfer Client",
+                "customer_phone": "+996700000010",
+                "passengers": 2,
+                "bags": 1,
+                "comment": "Airport",
+            })
+
+        results = self._run_concurrently(create_request)
+
+        self.assertEqual(TransportRequest.objects.count(), 1)
+        self.assertEqual({request.pk for request, _ in results}, {TransportRequest.objects.get().pk})
+        self.assertEqual(sorted(duplicate for _, duplicate in results), [False, True])
+
+    def test_concurrent_contact_requests_create_one_row(self):
+        results = self._run_concurrently(lambda: create_contact_request_service({
+            "name": "Contact Client",
+            "phone_or_email": "client@example.com",
+            "subject": "Question",
+            "message": "Same message",
+            "source": "tour_page",
+        }))
+
+        self.assertEqual(ContactRequest.objects.count(), 1)
+        self.assertEqual({request.pk for request, _ in results}, {ContactRequest.objects.get().pk})
+        self.assertEqual(sorted(duplicate for _, duplicate in results), [False, True])
+
+    def test_concurrent_payments_cannot_overbook(self):
+        _, first_payment_id, _ = self._create_booking("+996700000001", 3)
+        _, second_payment_id, _ = self._create_booking("+996700000002", 3)
+        barrier = Barrier(2)
+
+        def pay(payment_id):
+            close_old_connections()
+            try:
+                barrier.wait()
+                payment = Payment.objects.get(pk=payment_id)
+                try:
+                    payment.mark_paid_and_confirm_booking({"status": "paid"})
+                    return "paid"
+                except DjangoValidationError:
+                    return "rejected"
+            finally:
+                connections.close_all()
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            outcomes = list(executor.map(pay, [first_payment_id, second_payment_id]))
+
+        self.tour_date.refresh_from_db()
+        self.assertEqual(sorted(outcomes), ["paid", "rejected"])
+        self.assertEqual(self.tour_date.available_spots, 2)
+        self.assertEqual(Payment.objects.filter(status=Payment.STATUS_PAID).count(), 1)
+
+    def test_payment_state_transitions_are_idempotent(self):
+        _, payment_id, _ = self._create_booking("+996700000003", 1)
+        payment = Payment.objects.get(pk=payment_id)
+
+        _, changed_first = payment.mark_failed({"status": "failed"})
+        _, changed_second = payment.mark_failed({"status": "failed"})
+
+        self.assertTrue(changed_first)
+        self.assertFalse(changed_second)
+        with self.assertRaises(DjangoValidationError):
+            payment.mark_paid_and_confirm_booking({"status": "paid"})
