@@ -8,7 +8,7 @@ from django.db import connection, transaction
 from django.utils import timezone
 from rest_framework import serializers
 from .exceptions import InsufficientSpotsError
-from .models import Booking, ContactRequest, Payment, QuizLead, QuizQuestion, TourDate, TransportRequest
+from .models import Booking, ContactRequest, Payment, QuizLead, QuizQuestion, TourDate
 from .payment_providers import get_payment_provider
 
 logger = logging.getLogger(__name__)
@@ -213,30 +213,6 @@ def create_quiz_lead_service(validated_data):
         if duplicate:
             return duplicate, True
         return QuizLead.objects.create(request_fingerprint=fingerprint, **validated_data), False
-
-
-def create_transport_request_service(validated_data):
-    validated_data = validated_data.copy()
-    validated_data["customer_phone"] = str(validated_data["customer_phone"]).strip()
-    fingerprint = _fingerprint({
-        "vehicle": validated_data["vehicle"].pk,
-        "customer_name": _normalize_text(validated_data.get("customer_name")),
-        "customer_phone": _normalize_text(validated_data["customer_phone"]),
-        "passengers": validated_data.get("passengers", 1),
-        "bags": validated_data.get("bags", 0),
-        "comment": _normalize_text(validated_data.get("comment")),
-    })
-    with transaction.atomic():
-        _acquire_fingerprint_lock(fingerprint)
-        duplicate = _recent_duplicate(TransportRequest, fingerprint)
-        if duplicate:
-            return duplicate, True
-        return TransportRequest.objects.create(
-            request_fingerprint=fingerprint,
-            total_price=validated_data["vehicle"].price,
-            status="pending",
-            **validated_data,
-        ), False
 
 
 def create_contact_request_service(validated_data):

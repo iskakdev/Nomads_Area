@@ -5,9 +5,9 @@ from rest_framework import serializers
 from .models import (Attraction, AttractionImage, Booking, City, ContactRequest, Country,
                      ExtraService, FAQ, ItineraryDay, Payment, QuizLead, QuizProgress,
                      QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory, TourDate,
-                     TourImage, TourPriceTier, TourRoutePoint, TransferRoute, TransportRequest, VehicleType)
+                     TourImage, TourPriceTier, TourRoutePoint)
 from .services import (create_booking_with_payment_service, create_contact_request_service,
-                       create_quiz_lead_service, create_transport_request_service)
+                       create_quiz_lead_service)
 
 
 def is_english():
@@ -57,10 +57,6 @@ def get_tour_type_display(v):
 
 def get_season_display(v):
     return _disp(v, {"all_year": "All year", "warm": "Warm", "winter": "Winter"}, {"all_year": "Круглый год", "warm": "Тёплый", "winter": "Зима"})
-
-def get_vehicle_cat_display(v):
-    return _disp(v, {"sedan": "Sedan", "minivan": "Minivan", "minibus": "Minibus"}, {"sedan": "Седан", "minivan": "Минивэн", "minibus": "Миниавтобус"})
-
 
 class SiteSettingsSerializer(LocalizedModelSerializer):
     localized_fields = ("about_text", "privacy_policy")
@@ -440,50 +436,6 @@ class QuizLeadSerializer(LocalizedModelSerializer):
             validated_data["answers_data"] = answers
 
         i, is_dup = create_quiz_lead_service(validated_data)
-        self.is_duplicate = is_dup
-        return i
-
-
-class VehicleTypeSerializer(LocalizedModelSerializer):
-    category_display = serializers.SerializerMethodField()
-
-    class Meta:
-        model = VehicleType
-        fields = ["id", "category", "category_display", "price", "seats", "bags"]
-
-    def get_category_display(self, obj):
-        return get_vehicle_cat_display(obj.category)
-
-
-class TransferRouteSerializer(LocalizedModelSerializer):
-    vehicles = VehicleTypeSerializer(many=True, read_only=True)
-
-    class Meta:
-        model = TransferRoute
-        fields = ["id", "departure_point", "arrival_point", "vehicles"]
-
-
-class TransportRequestCreateSerializer(LocalizedModelSerializer):
-    passengers = serializers.IntegerField(default=1, min_value=1)
-    bags = serializers.IntegerField(default=0, min_value=0)
-
-    class Meta:
-        model = TransportRequest
-        fields = ["id", "vehicle", "customer_name", "customer_phone", "comment", "passengers", "bags", "status", "created_at"]
-        read_only_fields = ["id", "status", "created_at"]
-
-    def validate(self, attrs):
-        v = attrs["vehicle"]
-        p, b = attrs.get("passengers", 1), attrs.get("bags", 0)
-        if p > v.seats:
-            raise serializers.ValidationError({"vehicle": f"Макс {v.seats} пасс."})
-        if b > v.bags:
-            raise serializers.ValidationError({"vehicle": f"Макс {v.bags} багаж."})
-
-        return attrs
-
-    def create(self, validated_data):
-        i, is_dup = create_transport_request_service(validated_data)
         self.is_duplicate = is_dup
         return i
 
