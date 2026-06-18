@@ -317,6 +317,7 @@ class Booking(models.Model):
     adults = models.PositiveSmallIntegerField(default=1, verbose_name="Взрослые")
     children = models.PositiveSmallIntegerField(default=0, verbose_name="Дети")
     comment = models.TextField(blank=True, verbose_name="Комментарий")
+    extra_services = models.ManyToManyField(ExtraService, blank=True, related_name="bookings", verbose_name="Дополнительные услуги")
     price_per_person = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Цена за чел")
     total_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Итого")
     prepayment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Предоплата")

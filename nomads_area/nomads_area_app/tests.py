@@ -7,7 +7,7 @@ from rest_framework.test import APITestCase
 from .models import (
     Booking, City, ContactRequest, Country,
     QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
-    Tour, TourDate, TourPriceTier, TransferRoute,
+    ExtraService, Tour, TourDate, TourPriceTier, TransferRoute,
     TransportRequest, VehicleType,
 )
 
@@ -156,6 +156,56 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertEqual(self.mock_tg.call_count, 1)
         self.assertEqual(self.mock_email.call_count, 1)
+
+    def test_booking_with_extra_services_success(self):
+        """Выбранные extra services сохраняются вместе с бронью."""
+        service = ExtraService.objects.create(
+            tour=self.group_tour,
+            title="Дрон DJI Mini 3 Pro",
+            price=50,
+            currency="USD",
+            is_active=True,
+        )
+        payload = {
+            "tour": self.group_tour.id,
+            "tour_date": self.group_tour_date_available.id,
+            "customer_name": "Иван Иванов",
+            "customer_contact": "+996555123456",
+            "adults": 2,
+            "children": 0,
+            "extra_services": [service.id],
+        }
+
+        response = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        booking = Booking.objects.get(pk=response.data["id"])
+        self.assertEqual(list(booking.extra_services.values_list("id", flat=True)), [service.id])
+        self.assertEqual(response.data["extra_services"], [service.id])
+
+    def test_booking_rejects_extra_service_from_other_tour(self):
+        """Extra service нельзя прикрепить к броне другого тура."""
+        service = ExtraService.objects.create(
+            tour=self.private_tour,
+            title="Чужая услуга",
+            price=80,
+            currency="USD",
+            is_active=True,
+        )
+        payload = {
+            "tour": self.group_tour.id,
+            "tour_date": self.group_tour_date_available.id,
+            "customer_name": "Иван Иванов",
+            "customer_contact": "+996555123456",
+            "adults": 2,
+            "children": 0,
+            "extra_services": [service.id],
+        }
+
+        response = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertEqual(Booking.objects.count(), 0)
 
     def test_booking_overbooking_fails(self):
         """Нельзя забронировать больше мест чем доступно."""

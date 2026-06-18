@@ -41,6 +41,7 @@ def _create_booking_and_payment_db(validated_data, price_data, tour_date):
             raise InsufficientSpotsError(available=locked_tour_date.available_spots)
 
     # Убираем tour_date из validated_data — передаём явно через locked_tour_date
+    extra_services = validated_data.pop("extra_services", [])
     data = {k: v for k, v in validated_data.items() if k != "tour_date"}
 
     booking = Booking.objects.create(
@@ -52,6 +53,9 @@ def _create_booking_and_payment_db(validated_data, price_data, tour_date):
         status=Booking.STATUS_PENDING,
         **data,
     )
+    if extra_services:
+        booking.extra_services.set(extra_services)
+
     payment = Payment.objects.create(
         booking=booking,
         provider=Payment.PROVIDER_FINIKPAY,
