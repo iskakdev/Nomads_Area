@@ -238,6 +238,11 @@ class ExtraService(models.Model):
     description = models.TextField(blank=True, verbose_name="Описание")
     image = models.ImageField(upload_to="services/", blank=True, null=True, verbose_name="Фото")
     features = ArrayField(models.CharField(max_length=64), blank=True, default=list, verbose_name="Фичи")
+    features_ru = ArrayField(models.CharField(max_length=128), blank=True, default=list, verbose_name="Фичи (RU)")
+    features_en = ArrayField(models.CharField(max_length=128), blank=True, default=list, verbose_name="Фичи (EN)")
+    features_es = ArrayField(models.CharField(max_length=128), blank=True, default=list, verbose_name="Фичи (ES)")
+    features_fr = ArrayField(models.CharField(max_length=128), blank=True, default=list, verbose_name="Фичи (FR)")
+    features_de = ArrayField(models.CharField(max_length=128), blank=True, default=list, verbose_name="Фичи (DE)")
     price = models.PositiveIntegerField(verbose_name="Цена")
     currency = models.CharField(max_length=8, default="USD", verbose_name="Валюта")
     price_label = models.CharField(max_length=64, blank=True, verbose_name="Метка")
@@ -317,6 +322,7 @@ class Booking(models.Model):
     adults = models.PositiveSmallIntegerField(default=1, verbose_name="Взрослые")
     children = models.PositiveSmallIntegerField(default=0, verbose_name="Дети")
     comment = models.TextField(blank=True, verbose_name="Комментарий")
+    extra_services = models.ManyToManyField(ExtraService, blank=True, related_name="bookings", verbose_name="Дополнительные услуги")
     price_per_person = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Цена за чел")
     total_price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Итого")
     prepayment_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"), verbose_name="Предоплата")
@@ -564,4 +570,3 @@ class ContactRequest(models.Model):
 
     def __str__(self):
         return f"Заявка #{self.id}"
-
