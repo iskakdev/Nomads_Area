@@ -192,6 +192,8 @@ def send_transport_notification(tr):
         f"<b>Авто:</b> {clean(v.get_category_display())}\n"
         f"<b>Клиент:</b> {clean(tr.customer_name)}\n"
         f"<b>Телефон:</b> {clean(tr.customer_phone)}\n"
+        f"<b>Пассажиры:</b> {tr.passengers}\n"
+        f"<b>Багаж:</b> {tr.bags}\n"
         f"<b>Цена:</b> {tr.total_price}"
     )
     if tr.comment:

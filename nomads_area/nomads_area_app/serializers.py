@@ -464,8 +464,8 @@ class TransferRouteSerializer(LocalizedModelSerializer):
 
 
 class TransportRequestCreateSerializer(LocalizedModelSerializer):
-    passengers = serializers.IntegerField(write_only=True, default=1)
-    bags = serializers.IntegerField(write_only=True, default=0)
+    passengers = serializers.IntegerField(default=1, min_value=1)
+    bags = serializers.IntegerField(default=0, min_value=0)
 
     class Meta:
         model = TransportRequest
@@ -479,16 +479,10 @@ class TransportRequestCreateSerializer(LocalizedModelSerializer):
             raise serializers.ValidationError({"vehicle": f"Макс {v.seats} пасс."})
         if b > v.bags:
             raise serializers.ValidationError({"vehicle": f"Макс {v.bags} багаж."})
-        extra_services = attrs.get("extra_services") or []
-        invalid_services = [service.id for service in extra_services if service.tour_id != tour.id]
-        if invalid_services:
-            raise serializers.ValidationError({"extra_services": "Услуга не относится к выбранному туру"})
 
         return attrs
 
     def create(self, validated_data):
-        validated_data.pop("passengers", None)
-        validated_data.pop("bags", None)
         i, is_dup = create_transport_request_service(validated_data)
         self.is_duplicate = is_dup
         return i

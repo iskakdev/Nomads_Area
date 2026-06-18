@@ -212,7 +212,7 @@ class VehicleTypeAdmin(admin.ModelAdmin):
 
 @admin.register(TransportRequest)
 class TransportRequestAdmin(admin.ModelAdmin):
-    list_display = ["id", "vehicle", "customer_name", "customer_phone", "status", "total_price", "created_at"]
+    list_display = ["id", "vehicle", "customer_name", "customer_phone", "passengers", "bags", "status", "total_price", "created_at"]
     list_filter = ["status", "created_at"]; search_fields = ["customer_name", "customer_phone", "comment"]
     list_editable = ["status"]; readonly_fields = ["created_at"]; list_select_related = ["vehicle", "vehicle__route"]
 

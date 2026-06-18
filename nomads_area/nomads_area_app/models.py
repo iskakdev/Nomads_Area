@@ -332,6 +332,7 @@ class Booking(models.Model):
     cancelled_at = models.DateTimeField(null=True, blank=True, verbose_name="Отменено")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создано")
     dedup_hash = models.CharField(max_length=64, unique=True, db_index=True, editable=False, blank=True)
+    request_fingerprint = models.CharField(max_length=64, db_index=True, editable=False, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -418,7 +419,11 @@ class Payment(models.Model):
     def mark_paid_and_confirm_booking(self, provider_payload=None):
         provider_payload = provider_payload or {}
         with transaction.atomic():
-            payment = Payment.objects.select_for_update().select_related("booking", "booking__tour", "booking__tour_date").get(pk=self.pk)
+            payment = (
+                Payment.objects.select_for_update(of=("self",))
+                .select_related("booking", "booking__tour", "booking__tour_date")
+                .get(pk=self.pk)
+            )
             if payment.status == Payment.STATUS_PAID:
                 return payment, False
             if payment.status != Payment.STATUS_PENDING:
@@ -432,13 +437,17 @@ class Payment(models.Model):
             return payment, True
 
     def mark_failed(self, provider_payload=None):
-        if self.status == Payment.STATUS_FAILED:
-            return self
-        self.status = Payment.STATUS_FAILED
-        self.failed_at = timezone.now()
-        self.provider_payload = provider_payload or {}
-        self.save(update_fields=["status", "failed_at", "provider_payload", "updated_at"])
-        return self
+        with transaction.atomic():
+            payment = Payment.objects.select_for_update().get(pk=self.pk)
+            if payment.status == Payment.STATUS_FAILED:
+                return payment, False
+            if payment.status != Payment.STATUS_PENDING:
+                raise ValidationError(f"Статус '{payment.status}'")
+            payment.status = Payment.STATUS_FAILED
+            payment.failed_at = timezone.now()
+            payment.provider_payload = provider_payload or {}
+            payment.save(update_fields=["status", "failed_at", "provider_payload", "updated_at"])
+            return payment, True
 
 
 class QuizQuestion(models.Model):
@@ -477,6 +486,7 @@ class QuizLead(models.Model):
     answers_data = models.JSONField(default=dict, verbose_name="Ответы")
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending", verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+    request_fingerprint = models.CharField(max_length=64, db_index=True, editable=False, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -538,10 +548,13 @@ class TransportRequest(models.Model):
     vehicle = models.ForeignKey(VehicleType, on_delete=models.PROTECT, related_name="requests", verbose_name="Авто")
     customer_name = models.CharField(max_length=128, blank=True, default="", verbose_name="Имя")
     customer_phone = models.CharField(max_length=32, verbose_name="Телефон")
+    passengers = models.PositiveSmallIntegerField(default=1, verbose_name="Пассажиры")
+    bags = models.PositiveSmallIntegerField(default=0, verbose_name="Багаж")
     comment = models.TextField(blank=True, default="", verbose_name="Комментарий")
     total_price = models.PositiveIntegerField(verbose_name="Цена")
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending", verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+    request_fingerprint = models.CharField(max_length=64, db_index=True, editable=False, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
@@ -562,6 +575,7 @@ class ContactRequest(models.Model):
     source = models.CharField(max_length=64, blank=True, default="", verbose_name="Источник")
     status = models.CharField(max_length=16, choices=STATUS_CHOICES, default="pending", verbose_name="Статус")
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Создан")
+    request_fingerprint = models.CharField(max_length=64, db_index=True, editable=False, blank=True)
 
     class Meta:
         ordering = ["-created_at"]
