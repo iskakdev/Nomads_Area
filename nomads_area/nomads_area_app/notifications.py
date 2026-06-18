@@ -65,126 +65,104 @@ def send_payment_success_notification(payment):
 
 
 def send_quiz_notification(lead):
-    def quiz_label(key):
-        k = str(key).strip().lower()
-
-        # Format
-        if (
-            "формат" in k
-            or "type of travel" in k
-            or "travel do you prefer" in k
-            or "tipo de viaje" in k
-            or "type de voyage" in k
-            or "reiseart" in k
-            or "art von reise" in k
-        ):
-            return "Format"
-
-        # Region
-        if (
-            "регион" in k
-            or "страна" in k
-            or "куда" in k
-            or "region" in k
-            or "central asia" in k
-            or "región" in k
-            or "région" in k
-            or "region zentralasiens" in k
-        ):
-            return "Region"
-
-        # Budget
-        if (
-            "бюджет" in k
-            or "budget" in k
-            or "presupuesto" in k
-            or "budget par personne" in k
-        ):
-            return "Budget"
-
-        # Duration
-        if (
-            "сколько дней" in k
-            or "дней" in k
-            or "how many days" in k
-            or "days do you have" in k
-            or "cuántos días" in k
-            or "combien de jours" in k
-            or "wie viele tage" in k
-        ):
-            return "Duration"
-
-        # Activity / interest
-        if (
-            "актив" in k
-            or "интерес" in k
-            or "activity" in k
-            or "actividad" in k
-            or "activité" in k
-            or "aktivität" in k
-        ):
-            return "Activity"
-
-        # Travel date
-        if (
-            "когда" in k
-            or "планируете" in k
-            or "when are you planning" in k
-            or "planning to travel" in k
-            or "cuándo" in k
-            or "quand" in k
-            or "wann" in k
-        ):
-            return "Travel date"
-
-        # People
-        if (
-            "человек" in k
-            or "people" in k
-            or "how many people" in k
-            or "personas" in k
-            or "personnes" in k
-            or "personen" in k
-        ):
-            return "People"
-
-        # Requests
-        if (
-            "пожелания" in k
-            or "special requests" in k
-            or "solicitudes especiales" in k
-            or "demandes spéciales" in k
-            or "besondere wünsche" in k
-        ):
-            return "Requests"
-
-        # Comfort
-        if (
-            "комфорт" in k
-            or "прожив" in k
-            or "accommodation comfort" in k
-            or "comfort" in k
-            or "alojamiento" in k
-            or "hébergement" in k
-            or "unterkunft" in k
-        ):
-            return "Comfort"
-
-        # Contact
-        if (
-            "рекомендации" in k
-            or "получить" in k
-            or "receive recommendations" in k
-            or "recommendations" in k
-            or "recibir recomendaciones" in k
-            or "recevoir" in k
-            or "empfehlungen" in k
-        ):
-            return "Contact"
-
-        return str(key)
-
     answers = lead.answers_data or {}
+
+    def detect_answers_language():
+        questions = " ".join(str(key).lower() for key in answers)
+
+        if any("\u0400" <= char <= "\u04ff" for char in questions):
+            return "ru"
+        if any(marker in questions for marker in ("¿", "cuánt", "presupuesto", "viaje", "personas")):
+            return "es"
+        if any(marker in questions for marker in ("quel ", "quelle ", "combien", "souhaitez", "voyage")):
+            return "fr"
+        if any(marker in questions for marker in ("welche", "welcher", "wie viele", "reise", "unterkunft")):
+            return "de"
+        return "en"
+
+    language = detect_answers_language()
+    labels = {
+        "ru": {
+            "format": "Формат",
+            "region": "Регион",
+            "budget": "Бюджет",
+            "duration": "Продолжительность",
+            "activity": "Активность",
+            "travel_date": "Дата поездки",
+            "people": "Количество людей",
+            "requests": "Пожелания",
+            "comfort": "Комфорт",
+            "contact": "Способ связи",
+        },
+        "en": {
+            "format": "Format",
+            "region": "Region",
+            "budget": "Budget",
+            "duration": "Duration",
+            "activity": "Activity",
+            "travel_date": "Travel date",
+            "people": "People",
+            "requests": "Requests",
+            "comfort": "Comfort",
+            "contact": "Contact",
+        },
+        "es": {
+            "format": "Formato",
+            "region": "Región",
+            "budget": "Presupuesto",
+            "duration": "Duración",
+            "activity": "Actividad",
+            "travel_date": "Fecha del viaje",
+            "people": "Personas",
+            "requests": "Solicitudes",
+            "comfort": "Comodidad",
+            "contact": "Contacto",
+        },
+        "fr": {
+            "format": "Format",
+            "region": "Région",
+            "budget": "Budget",
+            "duration": "Durée",
+            "activity": "Activité",
+            "travel_date": "Date du voyage",
+            "people": "Voyageurs",
+            "requests": "Demandes",
+            "comfort": "Confort",
+            "contact": "Contact",
+        },
+        "de": {
+            "format": "Reiseformat",
+            "region": "Region",
+            "budget": "Budget",
+            "duration": "Dauer",
+            "activity": "Aktivität",
+            "travel_date": "Reisezeit",
+            "people": "Personen",
+            "requests": "Wünsche",
+            "comfort": "Komfort",
+            "contact": "Kontakt",
+        },
+    }
+
+    categories = (
+        ("format", ("формат", "type of travel", "travel do you prefer", "tipo de viaje", "type de voyage", "reiseart", "art von reise")),
+        ("region", ("регион", "страна", "куда", "region", "central asia", "región", "région", "zentralasien")),
+        ("budget", ("бюджет", "budget", "presupuesto")),
+        ("duration", ("сколько дней", "дней", "how many days", "days do you have", "cuántos días", "combien de jours", "wie viele tage")),
+        ("activity", ("актив", "интерес", "activity", "actividad", "activité", "aktivität")),
+        ("travel_date", ("когда", "планируете", "planning to travel", "cuándo", "quand", "wann")),
+        ("people", ("человек", "people", "personas", "personnes", "personen")),
+        ("requests", ("пожелания", "special requests", "solicitudes especiales", "demandes spéciales", "besondere wünsche")),
+        ("comfort", ("комфорт", "прожив", "comfort", "alojamiento", "hébergement", "unterkunft")),
+        ("contact", ("рекомендации", "получить", "recommendations", "recibir recomendaciones", "recevoir", "empfehlungen")),
+    )
+
+    def quiz_label(key):
+        normalized_key = str(key).strip().lower()
+        for category, markers in categories:
+            if any(marker in normalized_key for marker in markers):
+                return labels[language][category]
+        return str(key)
 
     text = (
         f"📝 <b>Лид из квиза #{lead.id}</b>\n\n"
@@ -196,8 +174,7 @@ def send_quiz_notification(lead):
     if answers:
         text += "\n\n🧭 <b>Запрос</b>"
         for key, value in answers.items():
-            label = quiz_label(key)
-            text += f"\n<b>{clean(label)}:</b> {clean(str(value))}"
+            text += f"\n<b>{clean(quiz_label(key))}:</b> {clean(str(value))}"
     else:
         text += "\n\n🧭 <b>Запрос:</b> Не указан"
 
