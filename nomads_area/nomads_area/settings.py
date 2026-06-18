@@ -243,42 +243,54 @@ JAZZMIN_SETTINGS = {
     "site_title": "Nomads Area Admin",
     "site_header": "Nomads Area",
     "site_brand": "Nomads Area",
-    "welcome_sign": "Добро пожаловать в админку Nomads Area",
+    "welcome_sign": "Панель управления Nomads Area",
     "copyright": "Nomads Area",
-    "search_model": ["nomads_area_app.Tour", "nomads_area_app.Booking"],
+    "custom_css": "admin/css/jazzmin-light.css",
     "show_sidebar": True,
     "navigation_expanded": True,
+    "related_modal_active": True,
+    "changeform_format": "horizontal_tabs",
+    "topmenu_links": [
+        {"name": "Сайт", "url": "https://www.nomadsarea.com", "new_window": True},
+    ],
     "icons": {
-        "nomads_area_app.Tour": "fas fa-map-marked-alt",
-        "nomads_area_app.Booking": "fas fa-calendar-check",
-        "nomads_area_app.QuizLead": "fas fa-clipboard-list",
-        "nomads_area_app.ContactMessage": "fas fa-envelope",
-        "nomads_area_app.Country": "fas fa-globe-asia",
-        "nomads_area_app.City": "fas fa-city",
+        "auth": "fas fa-users-cog",
         "auth.User": "fas fa-user",
         "auth.Group": "fas fa-users",
+        "nomads_area_app": "fas fa-compass",
+        "nomads_area_app.Tour": "fas fa-route",
+        "nomads_area_app.TourCategory": "fas fa-layer-group",
+        "nomads_area_app.ItineraryDay": "fas fa-calendar-day",
+        "nomads_area_app.TourDate": "fas fa-calendar-alt",
+        "nomads_area_app.TourPriceTier": "fas fa-tags",
+        "nomads_area_app.TourImage": "fas fa-image",
+        "nomads_area_app.Attraction": "fas fa-landmark",
+        "nomads_area_app.ExtraService": "fas fa-concierge-bell",
+        "nomads_area_app.FAQ": "fas fa-circle-question",
+        "nomads_area_app.Country": "fas fa-earth-asia",
+        "nomads_area_app.City": "fas fa-city",
+        "nomads_area_app.Booking": "fas fa-bookmark",
+        "nomads_area_app.QuizLead": "fas fa-user-tag",
+        "nomads_area_app.TeamMember": "fas fa-users",
+        "nomads_area_app.SiteSettings": "fas fa-gear",
     },
 }
 
-
-
-
-
-
-
-
 JAZZMIN_UI_TWEAKS = {
-    "theme": "darkly",
-    "dark_mode_theme": "darkly",
-    "navbar": "navbar-dark navbar-dark",
-    "sidebar": "sidebar-dark-primary",
+    "theme": "flatly",
+    "dark_mode_theme": None,
+    "default_theme_mode": "light",
+    "navbar": "navbar-white navbar-light",
+    "brand_colour": "navbar-dark",
     "accent": "accent-primary",
+    "sidebar": "sidebar-dark-primary",
+    "sidebar_nav_child_indent": True,
     "button_classes": {
         "primary": "btn-primary",
         "secondary": "btn-secondary",
         "info": "btn-info",
         "warning": "btn-warning",
         "danger": "btn-danger",
-        "success": "btn-success"
+        "success": "btn-success",
     },
 }
