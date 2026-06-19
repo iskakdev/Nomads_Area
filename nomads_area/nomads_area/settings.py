@@ -250,6 +250,14 @@ JAZZMIN_SETTINGS = {
     "navigation_expanded": True,
     "related_modal_active": True,
     "changeform_format": "horizontal_tabs",
+    "hide_models": [
+        "nomads_area_app.AttractionImage",
+        "nomads_area_app.ItineraryDay",
+        "nomads_area_app.QuizAnswerOption",
+        "nomads_area_app.TourImage",
+        "nomads_area_app.TourPriceTier",
+        "nomads_area_app.TourRoutePoint",
+    ],
     "topmenu_links": [
         {"name": "Сайт", "url": "https://www.nomadsarea.com", "new_window": True},
     ],

@@ -149,8 +149,8 @@ class TourImage(models.Model):
 
     class Meta:
         ordering = ["order", "id"]
-        verbose_name = "Изображение"
-        verbose_name_plural = "Изображения"
+        verbose_name = "Фото тура"
+        verbose_name_plural = "Фото туров"
 
     def __str__(self):
         return f"Фото {self.tour.title}"
@@ -170,7 +170,7 @@ class ItineraryDay(models.Model):
     class Meta:
         ordering = ["day_number"]
         verbose_name = "День маршрута"
-        verbose_name_plural = "Дни"
+        verbose_name_plural = "Программа тура"
         constraints = [models.UniqueConstraint(fields=["tour", "day_number"], name="unique_itinerary_day")]
 
     def __str__(self):
@@ -185,8 +185,8 @@ class TourDate(models.Model):
 
     class Meta:
         ordering = ["start_date"]
-        verbose_name = "Дата"
-        verbose_name_plural = "Даты"
+        verbose_name = "Дата тура"
+        verbose_name_plural = "Даты групповых туров"
         indexes = [models.Index(fields=["start_date", "available_spots"], name="tour_date_lookup_idx")]
 
     def __str__(self):
@@ -205,8 +205,8 @@ class TourPriceTier(models.Model):
 
     class Meta:
         ordering = ["min_people"]
-        verbose_name = "Тариф"
-        verbose_name_plural = "Тарифы"
+        verbose_name = "Цена приватного тура"
+        verbose_name_plural = "Цены приватных туров"
 
     def __str__(self):
         return f"{self.min_people}-{self.max_people or 'inf'} чел: {self.price_per_person}"
@@ -249,8 +249,8 @@ class ExtraService(models.Model):
     is_active = models.BooleanField(default=True, verbose_name="Активна")
 
     class Meta:
-        verbose_name = "Услуга"
-        verbose_name_plural = "Услуги"
+        verbose_name = "Дополнительная услуга"
+        verbose_name_plural = "Дополнительные услуги"
 
     def __str__(self):
         return self.title
@@ -265,8 +265,8 @@ class TourRoutePoint(models.Model):
 
     class Meta:
         ordering = ["order", "id"]
-        verbose_name = "Точка"
-        verbose_name_plural = "Точки"
+        verbose_name = "Точка маршрута"
+        verbose_name_plural = "Точки маршрута"
 
     def __str__(self):
         return self.title
@@ -297,8 +297,8 @@ class AttractionImage(models.Model):
 
     class Meta:
         ordering = ["order", "id"]
-        verbose_name = "Фото места"
-        verbose_name_plural = "Галерея"
+        verbose_name = "Фото достопримечательности"
+        verbose_name_plural = "Галерея достопримечательностей"
 
 
 class Booking(models.Model):
@@ -404,7 +404,7 @@ class QuizQuestion(models.Model):
     class Meta:
         ordering = ["order", "id"]
         verbose_name = "Вопрос квиза"
-        verbose_name_plural = "Вопросы"
+        verbose_name_plural = "Вопросы квиза"
 
     def __str__(self):
         return self.question_text
@@ -416,8 +416,8 @@ class QuizAnswerOption(models.Model):
     next_question = models.ForeignKey(QuizQuestion, on_delete=models.SET_NULL, null=True, blank=True, related_name="triggered_by_options", verbose_name="Следующий")
 
     class Meta:
-        verbose_name = "Вариант"
-        verbose_name_plural = "Варианты"
+        verbose_name = "Ответ квиза"
+        verbose_name_plural = "Ответы квиза"
 
     def __str__(self):
         return self.option_text
@@ -434,8 +434,8 @@ class QuizLead(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Лид"
-        verbose_name_plural = "Лиды"
+        verbose_name = "Заявка из квиза"
+        verbose_name_plural = "Заявки из квиза"
 
     def __str__(self):
         return f"Лид #{self.id}"
@@ -470,8 +470,8 @@ class ContactRequest(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
-        verbose_name = "Заявка"
-        verbose_name_plural = "Заявки"
+        verbose_name = "Контактная заявка"
+        verbose_name_plural = "Контактные заявки"
 
     def __str__(self):
         return f"Заявка #{self.id}"
