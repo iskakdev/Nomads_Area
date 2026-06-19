@@ -16,12 +16,12 @@ class SiteSettings(models.Model):
     tiktok_url = models.URLField(blank=True, verbose_name="TikTok")
     tripadvisor_url = models.URLField(blank=True, verbose_name="TripAdvisor")
     about_text = models.TextField(blank=True, verbose_name="Текст о компании")
-    about_video_url = models.URLField(blank=True, verbose_name="Видео о компании")
+    about_video_url = models.FileField(upload_to="site/videos/", blank=True, null=True, verbose_name="Видео о компании")
     years_experience = models.PositiveSmallIntegerField(default=5, verbose_name="Лет опыта")
     tourists_count = models.PositiveIntegerField(default=1200, verbose_name="Количество туристов")
     routes_count = models.PositiveSmallIntegerField(default=40, verbose_name="Количество маршрутов")
     reviews_enabled = models.BooleanField(default=False, verbose_name="Виджеты отзывов включены")
-    elfsight_google_reviews_app_id = models.CharField(max_length=128, blank=True, verbose_name="Elfsight Google Reviews App ID")
+    elfsight_google_reviews_app_id = models.CharField(max_length=128, blank=True, verbose_name="Elfsight Reviews Widget App ID")
     privacy_policy = models.TextField(blank=True, verbose_name="Политика конфиденциальности")
 
     class Meta:
@@ -72,7 +72,6 @@ class Country(models.Model):
 class City(models.Model):
     country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name="cities", verbose_name="Страна")
     city_name = models.CharField(max_length=64, verbose_name="Название города")
-    city_image = models.ImageField(upload_to="cities/", verbose_name="Изображение города")
     description = models.TextField(blank=True, verbose_name="Описание")
 
     class Meta:

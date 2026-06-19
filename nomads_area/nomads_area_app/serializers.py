@@ -97,13 +97,10 @@ class CountryListSerializer(LocalizedModelSerializer):
 
 class CityListSerializer(LocalizedModelSerializer):
     localized_fields = ("city_name", "description")
-    city_image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = City
-        fields = ["id", "city_name", "city_image", "city_image_url", "description"]
-
-    def get_city_image_url(self, obj): return _file_url(obj, "city_image", self.context.get("request"))
+        fields = ["id", "city_name", "description"]
 
 
 class TourCategoryListSerializer(LocalizedModelSerializer):
@@ -307,14 +304,11 @@ class CountryDetailSerializer(LocalizedModelSerializer):
 
 class CityDetailSerializer(LocalizedModelSerializer):
     localized_fields = ("city_name", "description")
-    city_image_url = serializers.SerializerMethodField()
     tours = serializers.SerializerMethodField()
 
     class Meta:
         model = City
-        fields = ["id", "city_name", "city_image", "city_image_url", "description", "tours"]
-
-    def get_city_image_url(self, obj): return _file_url(obj, "city_image", self.context.get("request"))
+        fields = ["id", "city_name", "description", "tours"]
     def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
 
 
