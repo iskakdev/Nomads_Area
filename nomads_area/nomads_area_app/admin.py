@@ -85,10 +85,10 @@ class TourPriceTierInline(admin.TabularInline):
 class SiteSettingsAdmin(TranslationMediaMixin, TranslationAdmin):
     list_display = ["phone", "email", "years_experience", "tourists_count", "reviews_enabled"]
     fieldsets = (
-        ("Контакты", {"fields": ("phone", "whatsapp", "email", "instagram_url", "facebook_url", "youtube_url", "tiktok_url", "tripadvisor_url")}),
+        ("Контакты", {"fields": ("phone", "whatsapp", "email", "instagram_url", "facebook_url", "youtube_url", "tiktok_url")}),
         ("О компании", {"fields": ("about_text", "about_video_url", "years_experience", "tourists_count", "routes_count", "privacy_policy")}),
         ("Виджеты отзывов", {"fields": ("reviews_enabled", "elfsight_google_reviews_app_id",),
-                             "description": "Google Reviews -- через платный Elfsight (App ID)."}),
+                             "description": "Отзывы через Elfsight. Можно использовать TripAdvisor Reviews, Google Reviews или другой Elfsight Reviews widget. Вставьте App ID."}),
     )
 
 
