@@ -191,7 +191,7 @@ class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         tour_queryset = Tour.objects.filter(is_active=True).prefetch_related(
-            "categories", "images", "price_tiers", "upcoming_dates",
+            "categories", "images", "price_tiers", "dates",
         )
         queryset = (
             Attraction.objects
