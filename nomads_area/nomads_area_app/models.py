@@ -85,8 +85,6 @@ class City(models.Model):
 
 class TourCategory(models.Model):
     name = models.CharField(max_length=64, unique=True, verbose_name="Название категории")
-    image = models.ImageField(upload_to="categories/", verbose_name="Изображение")
-    description = models.TextField(blank=True, verbose_name="Описание")
     order = models.PositiveSmallIntegerField(default=0, verbose_name="Порядок")
     is_active = models.BooleanField(default=True, verbose_name="Активна")
 

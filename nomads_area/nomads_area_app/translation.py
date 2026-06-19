@@ -16,7 +16,7 @@ class CountryTranslationOptions(TranslationOptions): fields = ("country_name", "
 class CityTranslationOptions(TranslationOptions): fields = ("city_name",)
 
 @register(TourCategory)
-class TourCategoryTranslationOptions(TranslationOptions): fields = ("name", "description")
+class TourCategoryTranslationOptions(TranslationOptions): fields = ("name",)
 
 @register(Tour)
 class TourTranslationOptions(TranslationOptions): fields = ("title", "description", "included", "not_included")

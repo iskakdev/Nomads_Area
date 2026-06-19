@@ -104,14 +104,11 @@ class CityListSerializer(LocalizedModelSerializer):
 
 
 class TourCategoryListSerializer(LocalizedModelSerializer):
-    localized_fields = ("name", "description")
-    image_url = serializers.SerializerMethodField()
+    localized_fields = ("name",)
 
     class Meta:
         model = TourCategory
-        fields = ["id", "name", "image", "image_url", "description"]
-
-    def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
+        fields = ["id", "name"]
 
 
 class TourCategoryShortSerializer(LocalizedModelSerializer):
