@@ -5,7 +5,7 @@ from django.forms.models import BaseInlineFormSet
 from modeltranslation.admin import TranslationAdmin
 from .models import (Attraction, AttractionImage, Booking, City, ContactRequest, Country,
                      ExtraService, FAQ, ItineraryDay, QuizAnswerOption, QuizLead,
-                     QuizProgress, QuizQuestion, SiteSettings, TeamMember, Tour,
+                     QuizQuestion, SiteSettings, TeamMember, Tour,
                      TourCategory, TourDate, TourImage, TourPriceTier, TourRoutePoint)
 
 admin.site.site_header = "Nomads Area Admin"
@@ -148,15 +148,6 @@ class QuizLeadAdmin(admin.ModelAdmin):
     def answers_data_pretty(self, i):
         return json.dumps(i.answers_data, ensure_ascii=False, indent=4) if i.answers_data else "-"
     answers_data_pretty.short_description = "Ответы"
-
-
-@admin.register(QuizProgress)
-class QuizProgressAdmin(admin.ModelAdmin):
-    list_display = ["session_key", "current_question_index", "is_completed", "created_at", "updated_at"]
-    readonly_fields = ["session_key", "answers_data", "current_question_index", "is_completed", "created_at", "updated_at"]
-
-    def has_module_permission(self, request):
-        return request.user.is_superuser
 
 
 @admin.register(FAQ)
