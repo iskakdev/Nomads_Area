@@ -194,6 +194,7 @@ class ExtraServiceAdmin(TranslationMediaMixin, TranslationAdmin):
     list_display = ["title", "tour", "price", "currency", "is_active"]; list_filter = ["is_active", "currency", "tour"]
     search_fields = ["title", "description", "tour__title"]; list_editable = ["is_active"]
     list_select_related = ["tour"]
+    fields = ["tour", "title", "description", "image", "price", "currency", "price_label", "is_active"]
 
 
 @admin.register(Attraction)
