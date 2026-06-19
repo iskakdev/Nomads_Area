@@ -115,13 +115,21 @@ class TourCategoryAdmin(TranslationMediaMixin, TranslationAdmin):
     search_fields = ["name"]; list_editable = ["is_active", "order"]
 
 
+
+class TourAttractionInline(admin.TabularInline):
+    model = Attraction.tours.through
+    extra = 0
+    verbose_name = "Достопримечательность"
+    verbose_name_plural = "Достопримечательности"
+
+
 @admin.register(Tour)
 class TourAdmin(TranslationMediaMixin, TranslationAdmin):
     list_display = ["title", "tour_type", "price", "currency", "is_active", "created_at"]
     list_filter = ["tour_type", "season", "difficulty", "is_active", "country", "city", "categories"]
     search_fields = ["title", "description", "country__country_name", "city__city_name"]
     list_editable = ["is_active"]; filter_horizontal = ["categories"]; list_select_related = ["country", "city"]
-    inlines = [TourImageInline, TourRoutePointInline, ItineraryDayInline, TourDateInline, TourPriceTierInline]
+    inlines = [TourImageInline, TourRoutePointInline, ItineraryDayInline, TourDateInline, TourPriceTierInline, TourAttractionInline]
 
 
 @admin.register(TourDate)
@@ -193,7 +201,7 @@ class AttractionAdmin(TranslationMediaMixin, TranslationAdmin):
     form = AttractionAdminForm
     list_display = ["name", "city", "tours_list", "is_active"]; list_filter = ["is_active", "city", "tours"]
     search_fields = ["name", "description", "city__city_name", "tours__title"]; list_editable = ["is_active"]
-    list_select_related = ["city"]; filter_horizontal = ["tours"]; inlines = [AttractionImageInline]
+    list_select_related = ["city"]; exclude = ["tours"]; inlines = [AttractionImageInline]
 
     def get_queryset(self, request):
         return super().get_queryset(request).prefetch_related("tours")
