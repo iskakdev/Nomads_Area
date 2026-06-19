@@ -72,7 +72,6 @@ class Country(models.Model):
 class City(models.Model):
     country = models.ForeignKey(Country, on_delete=models.CASCADE, related_name="cities", verbose_name="Страна")
     city_name = models.CharField(max_length=64, verbose_name="Название города")
-    description = models.TextField(blank=True, verbose_name="Описание")
 
     class Meta:
         ordering = ["city_name"]

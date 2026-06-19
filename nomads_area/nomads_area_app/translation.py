@@ -13,7 +13,7 @@ class TeamMemberTranslationOptions(TranslationOptions): fields = ("full_name", "
 class CountryTranslationOptions(TranslationOptions): fields = ("country_name", "hero_description")
 
 @register(City)
-class CityTranslationOptions(TranslationOptions): fields = ("city_name", "description")
+class CityTranslationOptions(TranslationOptions): fields = ("city_name",)
 
 @register(TourCategory)
 class TourCategoryTranslationOptions(TranslationOptions): fields = ("name", "description")

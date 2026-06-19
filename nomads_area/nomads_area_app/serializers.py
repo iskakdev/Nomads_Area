@@ -96,11 +96,11 @@ class CountryListSerializer(LocalizedModelSerializer):
 
 
 class CityListSerializer(LocalizedModelSerializer):
-    localized_fields = ("city_name", "description")
+    localized_fields = ("city_name",)
 
     class Meta:
         model = City
-        fields = ["id", "city_name", "description"]
+        fields = ["id", "city_name"]
 
 
 class TourCategoryListSerializer(LocalizedModelSerializer):
@@ -303,12 +303,12 @@ class CountryDetailSerializer(LocalizedModelSerializer):
 
 
 class CityDetailSerializer(LocalizedModelSerializer):
-    localized_fields = ("city_name", "description")
+    localized_fields = ("city_name",)
     tours = serializers.SerializerMethodField()
 
     class Meta:
         model = City
-        fields = ["id", "city_name", "description", "tours"]
+        fields = ["id", "city_name", "tours"]
     def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
 
 
