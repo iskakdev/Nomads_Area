@@ -166,9 +166,20 @@ class ExtraServiceAdmin(TranslationMediaMixin, TranslationAdmin):
 
 @admin.register(Attraction)
 class AttractionAdmin(TranslationMediaMixin, TranslationAdmin):
-    list_display = ["name", "city", "is_active"]; list_filter = ["is_active", "city"]
-    search_fields = ["name", "description", "city__city_name"]; list_editable = ["is_active"]
+    list_display = ["name", "city", "tours_list", "is_active"]; list_filter = ["is_active", "city", "tours"]
+    search_fields = ["name", "description", "city__city_name", "tours__title"]; list_editable = ["is_active"]
     list_select_related = ["city"]; filter_horizontal = ["tours"]; inlines = [AttractionImageInline]
+
+    def get_queryset(self, request):
+        return super().get_queryset(request).prefetch_related("tours")
+
+    def tours_list(self, obj):
+        titles = list(obj.tours.values_list("title", flat=True)[:5])
+        label = ", ".join(titles) if titles else "-"
+        if obj.tours.count() > 5:
+            label += " ..."
+        return label
+    tours_list.short_description = "Туры"
 
 
 @admin.register(ContactRequest)
