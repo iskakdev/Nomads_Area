@@ -162,6 +162,7 @@ class ItineraryDay(models.Model):
     walking_distance = models.CharField(max_length=64, blank=True, verbose_name="Пешком")
     driving_distance = models.CharField(max_length=64, blank=True, verbose_name="На авто")
     accommodation = models.CharField(max_length=128, blank=True, verbose_name="Проживание")
+    tags = models.CharField(max_length=255, blank=True, default="", verbose_name="Теги")
 
     class Meta:
         ordering = ["day_number"]
