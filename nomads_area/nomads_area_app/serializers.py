@@ -455,22 +455,38 @@ class AttractionImageSerializer(LocalizedModelSerializer):
 class AttractionListSerializer(LocalizedModelSerializer):
     localized_fields = ("name", "description")
     image_url = serializers.SerializerMethodField()
+    city_name = serializers.SerializerMethodField()
+    country_id = serializers.IntegerField(source="city.country_id", read_only=True)
+    country_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Attraction
-        fields = ["id", "name", "description", "image", "image_url"]
+        fields = [
+            "id", "name", "description", "image", "image_url",
+            "city", "city_name", "country_id", "country_name",
+        ]
 
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
+    def get_city_name(self, obj): return localized_value(obj.city, "city_name", get_request_language(self.context))
+    def get_country_name(self, obj): return localized_value(obj.city.country, "country_name", get_request_language(self.context))
 
 
 class AttractionDetailSerializer(LocalizedModelSerializer):
     localized_fields = ("name", "description")
     image_url = serializers.SerializerMethodField()
+    city_name = serializers.SerializerMethodField()
+    country_id = serializers.IntegerField(source="city.country_id", read_only=True)
+    country_name = serializers.SerializerMethodField()
     images = AttractionImageSerializer(many=True, read_only=True)
     tours = TourListSerializer(many=True, read_only=True)
 
     class Meta:
         model = Attraction
-        fields = ["id", "name", "description", "image", "image_url", "images", "tours"]
+        fields = [
+            "id", "name", "description", "image", "image_url",
+            "city", "city_name", "country_id", "country_name", "images", "tours",
+        ]
 
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
+    def get_city_name(self, obj): return localized_value(obj.city, "city_name", get_request_language(self.context))
+    def get_country_name(self, obj): return localized_value(obj.city.country, "country_name", get_request_language(self.context))

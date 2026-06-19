@@ -1,4 +1,5 @@
 import json
+from django import forms
 from django.contrib import admin, messages
 from django.core.exceptions import ValidationError
 from django.forms.models import BaseInlineFormSet
@@ -35,6 +36,29 @@ class TourRoutePointInline(admin.TabularInline):
 
 class AttractionImageInline(admin.TabularInline):
     model = AttractionImage; extra = 1; fields = ["image", "alt_text", "order"]
+
+
+class AttractionAdminForm(forms.ModelForm):
+    class Meta:
+        model = Attraction
+        fields = "__all__"
+
+    def clean(self):
+        cleaned_data = super().clean()
+        city = cleaned_data.get("city")
+        name = (cleaned_data.get("name") or "").strip()
+
+        if city and name:
+            duplicates = Attraction.objects.filter(city=city, name__iexact=name)
+            if self.instance.pk:
+                duplicates = duplicates.exclude(pk=self.instance.pk)
+            if duplicates.exists():
+                raise ValidationError(
+                    "Такая достопримечательность уже есть в этом городе. "
+                    "Откройте существующую запись и добавьте к ней нужные туры."
+                )
+
+        return cleaned_data
 
 class QuizAnswerOptionInline(admin.TabularInline):
     model = QuizAnswerOption; fk_name = "question"; extra = 1
@@ -166,6 +190,7 @@ class ExtraServiceAdmin(TranslationMediaMixin, TranslationAdmin):
 
 @admin.register(Attraction)
 class AttractionAdmin(TranslationMediaMixin, TranslationAdmin):
+    form = AttractionAdminForm
     list_display = ["name", "city", "tours_list", "is_active"]; list_filter = ["is_active", "city", "tours"]
     search_fields = ["name", "description", "city__city_name", "tours__title"]; list_editable = ["is_active"]
     list_select_related = ["city"]; filter_horizontal = ["tours"]; inlines = [AttractionImageInline]

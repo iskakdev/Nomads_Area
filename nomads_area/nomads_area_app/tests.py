@@ -18,7 +18,7 @@ from .services import (
 )
 from .throttles import FormSubmitThrottle
 from .models import (
-    Booking, City, ContactRequest, Country,
+    Attraction, Booking, City, ContactRequest, Country,
     QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
     ExtraService, Tour, TourDate, TourPriceTier,
 )
@@ -139,6 +139,7 @@ class ProjectTests(BaseNoSpamTestCase):
         self.quiz_progress_url = f"{API}/quiz/progress/"
         self.quiz_questions_url = f"{API}/quiz/questions/"
         self.tours_url = f"{API}/tours/"
+        self.attractions_url = f"{API}/attractions/"
 
     def _reset_mocks(self):
         self.mock_tg.reset_mock()
@@ -560,6 +561,72 @@ class ProjectTests(BaseNoSpamTestCase):
 
         self.assertIn(self.group_tour.id, ids)
         self.assertIn(self.private_tour.id, ids)
+
+    # ------------------------------------------------------------------ #
+    # ДОСТОПРИМЕЧАТЕЛЬНОСТИ                                               #
+    # ------------------------------------------------------------------ #
+
+    def test_attractions_can_be_filtered_by_country_id(self):
+        """Страница достопримечательностей может показать только выбранную страну."""
+        kazakhstan = Country.objects.create(country_name="Казахстан", country_name_en="Kazakhstan")
+        almaty = City.objects.create(country=kazakhstan, city_name="Алматы", city_name_en="Almaty")
+
+        kyrgyz_attraction = Attraction.objects.create(
+            city=self.city,
+            name="Ала-Арча",
+            description="Горы Кыргызстана",
+            image="attractions/ala-archa.jpg",
+            is_active=True,
+        )
+        kazakh_attraction = Attraction.objects.create(
+            city=almaty,
+            name="Чарын",
+            description="Каньон в Казахстане",
+            image="attractions/charyn.jpg",
+            is_active=True,
+        )
+
+        response = self.client.get(self.attractions_url, {"country": kazakhstan.id})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data["results"]]
+        self.assertIn(kazakh_attraction.id, ids)
+        self.assertNotIn(kyrgyz_attraction.id, ids)
+
+    def test_attractions_can_be_filtered_by_country_name(self):
+        """Фильтр страны принимает не только id, но и название из маршрута."""
+        kazakhstan = Country.objects.create(country_name="Казахстан", country_name_en="Kazakhstan")
+        almaty = City.objects.create(country=kazakhstan, city_name="Алматы", city_name_en="Almaty")
+        kazakh_attraction = Attraction.objects.create(
+            city=almaty,
+            name="Медеу",
+            description="Каток в Алматы",
+            image="attractions/medeu.jpg",
+            is_active=True,
+        )
+
+        response = self.client.get(self.attractions_url, {"country": "Kazakhstan"})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data["results"]]
+        self.assertEqual(ids, [kazakh_attraction.id])
+
+    def test_attraction_detail_returns_related_tours(self):
+        """Одна достопримечательность может быть связана с несколькими турами."""
+        attraction = Attraction.objects.create(
+            city=self.city,
+            name="Сон-Куль",
+            description="Озеро",
+            image="attractions/son-kul.jpg",
+            is_active=True,
+        )
+        attraction.tours.add(self.group_tour, self.private_tour)
+
+        response = self.client.get(f"{self.attractions_url}{attraction.id}/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        tour_ids = {item["id"] for item in response.data["tours"]}
+        self.assertEqual(tour_ids, {self.group_tour.id, self.private_tour.id})
 
 
 class ConcurrentIntegrityTests(TransactionTestCase):

@@ -190,7 +190,41 @@ class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return Attraction.objects.filter(is_active=True).select_related("city").prefetch_related("images", "tours")
+        tour_queryset = Tour.objects.filter(is_active=True).prefetch_related(
+            "categories", "images", "price_tiers", "upcoming_dates",
+        )
+        queryset = (
+            Attraction.objects
+            .filter(is_active=True)
+            .select_related("city", "city__country")
+            .prefetch_related("images", Prefetch("tours", queryset=tour_queryset))
+            .distinct()
+        )
+
+        country = self.request.query_params.get("country")
+        city = self.request.query_params.get("city")
+        tour = self.request.query_params.get("tour")
+
+        if country:
+            country_query = Q(city__country__country_name__iexact=country)
+            for lang in ("ru", "en", "es", "fr", "de"):
+                country_query |= Q(**{f"city__country__country_name_{lang}__iexact": country})
+            if country.isdigit():
+                country_query |= Q(city__country_id=int(country))
+            queryset = queryset.filter(country_query)
+
+        if city:
+            city_query = Q(city__city_name__iexact=city)
+            for lang in ("ru", "en", "es", "fr", "de"):
+                city_query |= Q(**{f"city__city_name_{lang}__iexact": city})
+            if city.isdigit():
+                city_query |= Q(city_id=int(city))
+            queryset = queryset.filter(city_query)
+
+        if tour and tour.isdigit():
+            queryset = queryset.filter(tours__id=int(tour))
+
+        return queryset
 
     def get_serializer_class(self):
         return AttractionDetailSerializer if self.action == "retrieve" else AttractionListSerializer
