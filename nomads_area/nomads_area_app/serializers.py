@@ -171,6 +171,18 @@ class TourListSerializer(LocalizedModelSerializer):
     def get_price(self, obj):
         return get_display_price(obj)
 
+    def get_faqs(self, obj):
+        faqs = obj.faqs.filter(is_active=True)
+        return FAQSerializer(faqs, many=True, context=self.context).data
+
+    def get_extra_services(self, obj):
+        services = obj.extra_services.filter(is_active=True)
+        return ExtraServiceSerializer(services, many=True, context=self.context).data
+
+    def get_attractions(self, obj):
+        attractions = obj.attractions.filter(is_active=True)
+        return AttractionInTourSerializer(attractions, many=True, context=self.context).data
+
     def get_tour_type_display(self, obj): return get_tour_type_display(obj.tour_type)
     def get_season_display(self, obj): return get_season_display(obj.season)
 
@@ -238,11 +250,11 @@ class TourDetailSerializer(LocalizedModelSerializer):
     price = serializers.SerializerMethodField()
     images = TourImageSerializer(many=True, read_only=True)
     itinerary_days = ItineraryDaySerializer(many=True, read_only=True)
-    faqs = FAQSerializer(many=True, read_only=True)
-    extra_services = ExtraServiceSerializer(many=True, read_only=True)
+    faqs = serializers.SerializerMethodField()
+    extra_services = serializers.SerializerMethodField()
     route_points = TourRoutePointSerializer(many=True, read_only=True)
     price_tiers = TourPriceTierSerializer(many=True, read_only=True)
-    attractions = AttractionInTourSerializer(many=True, read_only=True)
+    attractions = serializers.SerializerMethodField()
     categories = TourCategoryShortSerializer(many=True, read_only=True)
     tour_type_display = serializers.SerializerMethodField()
     season_display = serializers.SerializerMethodField()
@@ -261,6 +273,18 @@ class TourDetailSerializer(LocalizedModelSerializer):
 
     def get_price(self, obj):
         return get_display_price(obj)
+
+    def get_faqs(self, obj):
+        faqs = obj.faqs.filter(is_active=True)
+        return FAQSerializer(faqs, many=True, context=self.context).data
+
+    def get_extra_services(self, obj):
+        services = obj.extra_services.filter(is_active=True)
+        return ExtraServiceSerializer(services, many=True, context=self.context).data
+
+    def get_attractions(self, obj):
+        attractions = obj.attractions.filter(is_active=True)
+        return AttractionInTourSerializer(attractions, many=True, context=self.context).data
 
     def get_upcoming_dates(self, obj):
         dates = getattr(obj, "prefetched_dates", None)
