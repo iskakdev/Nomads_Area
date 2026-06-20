@@ -141,6 +141,8 @@ class TourDateAdmin(admin.ModelAdmin):
 @admin.register(Booking)
 class BookingAdmin(admin.ModelAdmin):
     list_display = ["id", "tour", "tour_date", "customer_name", "customer_contact", "status", "number_of_people", "total_price", "created_at"]
+    list_display_links = ["id", "tour"]
+    list_editable = ["status"]
     list_filter = ["status", "created_at", "tour__tour_type"]
     search_fields = ["customer_name", "customer_contact", "comment", "tour__title"]
     readonly_fields = ["created_at", "confirmed_at", "cancelled_at", "price_per_person", "total_price", "currency"]

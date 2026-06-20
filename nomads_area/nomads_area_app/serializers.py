@@ -211,7 +211,7 @@ class ItineraryDaySerializer(LocalizedModelSerializer):
 
     class Meta:
         model = ItineraryDay
-        fields = ["day_number", "title", "description", "image", "image_url", "altitude", "walking_distance", "driving_distance", "accommodation"]
+        fields = ["day_number", "title", "description", "image", "image_url", "altitude", "walking_distance", "driving_distance", "accommodation", "tags"]
 
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
 
