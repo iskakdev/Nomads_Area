@@ -1,9 +1,12 @@
 from datetime import date, timedelta
 from concurrent.futures import ThreadPoolExecutor
+from importlib import import_module
 from threading import Barrier
 from unittest.mock import patch
 
+from django.apps import apps
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.db import close_old_connections, connections
 from django.test import SimpleTestCase, TransactionTestCase
 from django.utils import timezone
@@ -18,10 +21,11 @@ from .services import (
 )
 from .throttles import FormSubmitThrottle
 from .models import (
-    Attraction, Booking, City, ContactRequest, Country,
+    Attraction, AttractionImage, Booking, City, ContactRequest, Country,
     QuizAnswerOption, QuizLead, QuizProgress, QuizQuestion,
     ExtraService, Tour, TourDate, TourPriceTier,
 )
+from .admin import AttractionAdminForm
 
 LANG = "ru"
 API = f"/api/{LANG}"
@@ -197,6 +201,28 @@ class ProjectTests(BaseNoSpamTestCase):
         booking = Booking.objects.get(pk=response.data["id"])
         self.assertEqual(list(booking.extra_services.values_list("id", flat=True)), [service.id])
         self.assertEqual(response.data["extra_services"], [service.id])
+
+    def test_booking_rejects_inactive_tour(self):
+        """Скрытый тур нельзя забронировать даже если страница осталась в кеше."""
+        self.group_tour.is_active = False
+        self.group_tour.save(update_fields=["is_active"])
+
+        payload = {
+            "tour": self.group_tour.id,
+            "tour_date": self.group_tour_date_available.id,
+            "customer_name": "Иван Иванов",
+            "customer_contact": "+996555123456",
+            "adults": 2,
+            "children": 0,
+        }
+
+        response = self.client.post(self.booking_url, payload, format="json")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("tour", response.data)
+        self.assertEqual(Booking.objects.count(), 0)
+        self.assertEqual(self.mock_tg.call_count, 0)
+        self.assertEqual(self.mock_email.call_count, 0)
 
     def test_booking_rejects_extra_service_from_other_tour(self):
         """Extra service нельзя прикрепить к броне другого тура."""
@@ -593,6 +619,30 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertIn(kazakh_attraction.id, ids)
         self.assertNotIn(kyrgyz_attraction.id, ids)
 
+    def test_attraction_list_excludes_inactive_items(self):
+        """Неактивная достопримечательность не должна попадать на сайт."""
+        active_attraction = Attraction.objects.create(
+            city=self.city,
+            name="Активное место",
+            description="Показываем",
+            image="attractions/active.jpg",
+            is_active=True,
+        )
+        inactive_attraction = Attraction.objects.create(
+            city=self.city,
+            name="Скрытое место",
+            description="Не показываем",
+            image="attractions/inactive.jpg",
+            is_active=False,
+        )
+
+        response = self.client.get(self.attractions_url)
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        ids = [item["id"] for item in response.data["results"]]
+        self.assertIn(active_attraction.id, ids)
+        self.assertNotIn(inactive_attraction.id, ids)
+
     def test_attractions_can_be_filtered_by_country_name(self):
         """Фильтр страны принимает не только id, но и название из маршрута."""
         kazakhstan = Country.objects.create(country_name="Казахстан", country_name_en="Kazakhstan")
@@ -627,6 +677,66 @@ class ProjectTests(BaseNoSpamTestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         tour_ids = {item["id"] for item in response.data["tours"]}
         self.assertEqual(tour_ids, {self.group_tour.id, self.private_tour.id})
+
+    def test_attraction_admin_form_rejects_duplicate_in_same_city(self):
+        """Менеджер не должен случайно создать дубль той же достопримечательности."""
+        Attraction.objects.create(
+            city=self.city,
+            name="Байтерек",
+            description="Существующая запись",
+            image="attractions/baiterek.jpg",
+            is_active=True,
+        )
+
+        form = AttractionAdminForm(data={
+            "city": self.city.id,
+            "name": "байтерек",
+            "description": "Дубль",
+            "is_active": True,
+        }, files={
+            "image": SimpleUploadedFile(
+                "baiterek.gif",
+                b"GIF87a\x01\x00\x01\x00\x80\x01\x00\x00\x00\x00ccc,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;",
+                content_type="image/gif",
+            ),
+        })
+
+        self.assertFalse(form.is_valid())
+        self.assertIn("Такая достопримечательность уже есть", str(form.errors))
+
+    def test_deduplicate_attractions_migration_merges_tours_and_gallery(self):
+        """Data migration оставляет одну запись и переносит туры/галерею."""
+        first = Attraction.objects.create(
+            city=self.city,
+            name="Baiterek",
+            description="Основная запись",
+            image="attractions/baiterek.jpg",
+            is_active=True,
+        )
+        second = Attraction.objects.create(
+            city=self.city,
+            name="  baiterek  ",
+            description="Дубль",
+            image="attractions/baiterek-duplicate.jpg",
+            is_active=True,
+        )
+        first.tours.add(self.group_tour)
+        second.tours.add(self.private_tour)
+        image = AttractionImage.objects.create(
+            attraction=second,
+            image="attractions/gallery/baiterek.jpg",
+            alt_text="Baiterek",
+            order=1,
+        )
+
+        migration = import_module("nomads_area_app.migrations.0013_deduplicate_attractions")
+        migration.merge_duplicate_attractions(apps, None)
+
+        remaining = Attraction.objects.get(city=self.city, name="Baiterek")
+        self.assertEqual(Attraction.objects.filter(city=self.city, name__iexact="baiterek").count(), 1)
+        self.assertEqual(set(remaining.tours.values_list("id", flat=True)), {self.group_tour.id, self.private_tour.id})
+        image.refresh_from_db()
+        self.assertEqual(image.attraction_id, remaining.id)
 
 
 class ConcurrentIntegrityTests(TransactionTestCase):
