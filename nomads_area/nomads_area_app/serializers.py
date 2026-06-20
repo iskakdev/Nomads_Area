@@ -326,6 +326,12 @@ class BookingCreateSerializer(LocalizedModelSerializer):
 
     def validate(self, attrs):
         tour = attrs["tour"]
+
+        if not tour.is_active:
+            raise serializers.ValidationError({
+                "tour": "Этот тур сейчас недоступен для бронирования"
+            })
+
         tour_date = attrs.get("tour_date")
         total = attrs["adults"] + attrs.get("children", 0)
         self._price_tier = self._resolved_date = None
