@@ -1,0 +1,8 @@
+[Unit]
+Description=Nomads Area database backup
+
+[Service]
+Type=oneshot
+Environment=PROJECT_DIR=/root/Nomads_Area
+Environment=BACKUP_DIR=/var/backups/nomads-area
+ExecStart=/root/Nomads_Area/scripts/backup_database.sh

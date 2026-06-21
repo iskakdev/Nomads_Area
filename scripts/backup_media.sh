@@ -5,6 +5,7 @@ PROJECT_DIR="${PROJECT_DIR:-/root/Nomads_Area}"
 APP_DIR="${APP_DIR:-$PROJECT_DIR/nomads_area}"
 VENV_DIR="${VENV_DIR:-$PROJECT_DIR/venv}"
 BACKUP_DIR="${BACKUP_DIR:-/var/backups/nomads-area}"
+RETENTION_DAYS="${BACKUP_RETENTION_DAYS:-14}"
 
 mkdir -p "$BACKUP_DIR"
 
@@ -20,3 +21,5 @@ BACKUP_FILE="$BACKUP_DIR/media-$(date +%F-%H%M).tar.gz"
 
 tar -czf "$BACKUP_FILE" -C "$(dirname "$MEDIA_ROOT")" "$(basename "$MEDIA_ROOT")"
 ls -lh "$BACKUP_FILE"
+
+find "$BACKUP_DIR" -type f -name "media-*.tar.gz" -mtime +"$RETENTION_DAYS" -print -delete

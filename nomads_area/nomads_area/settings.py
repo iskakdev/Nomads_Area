@@ -20,6 +20,7 @@ DEFAULT_ALLOWED_HOSTS = [
     "localhost",
     "127.0.0.1",
 ]
+
 ENV_ALLOWED_HOSTS = [
     host.strip()
     for host in os.getenv("ALLOWED_HOSTS", "").split(",")
@@ -45,6 +46,10 @@ INSTALLED_APPS = [
     "drf_spectacular",
     "corsheaders",
 ]
+
+USE_S3_STORAGE = os.getenv("USE_S3_STORAGE", "False") == "True"
+if USE_S3_STORAGE:
+    INSTALLED_APPS.append("storages")
 
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
@@ -135,6 +140,37 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_ROOT = os.path.join(BASE_DIR, "media")
 MEDIA_URL = "/media/"
+
+if USE_S3_STORAGE:
+    AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID", "")
+    AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY", "")
+    AWS_STORAGE_BUCKET_NAME = os.getenv("AWS_STORAGE_BUCKET_NAME", "")
+    AWS_S3_REGION_NAME = os.getenv("AWS_S3_REGION_NAME", "")
+    AWS_S3_ENDPOINT_URL = os.getenv("AWS_S3_ENDPOINT_URL", None)
+    AWS_S3_CUSTOM_DOMAIN = os.getenv("AWS_S3_CUSTOM_DOMAIN", "")
+    AWS_LOCATION = os.getenv("AWS_LOCATION", "media")
+    AWS_DEFAULT_ACL = None
+    AWS_QUERYSTRING_AUTH = os.getenv("AWS_QUERYSTRING_AUTH", "False") == "True"
+    AWS_S3_OBJECT_PARAMETERS = {
+        "CacheControl": os.getenv("AWS_S3_CACHE_CONTROL", "max-age=86400")
+    }
+
+    STORAGES = {
+        "default": {
+            "BACKEND": "storages.backends.s3boto3.S3Boto3Storage",
+            "OPTIONS": {
+                "location": AWS_LOCATION,
+            },
+        },
+        "staticfiles": {
+            "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+        },
+    }
+
+    if AWS_S3_CUSTOM_DOMAIN:
+        MEDIA_URL = f"https://{AWS_S3_CUSTOM_DOMAIN}/{AWS_LOCATION}/"
+    elif AWS_STORAGE_BUCKET_NAME:
+        MEDIA_URL = f"https://{AWS_STORAGE_BUCKET_NAME}.s3.amazonaws.com/{AWS_LOCATION}/"
 
 
 LANGUAGES = (
@@ -257,6 +293,18 @@ TRIPADVISOR_API_KEY = os.getenv("TRIPADVISOR_API_KEY", "")
 
 TRIPADVISOR_URL = os.getenv("TRIPADVISOR_URL", "https://www.tripadvisor.com/")
 TRIPADVISOR_LOCATION_ID = os.getenv("TRIPADVISOR_LOCATION_ID", "")
+
+
+SENTRY_DSN = os.getenv("SENTRY_DSN", "")
+if SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(
+        dsn=SENTRY_DSN,
+        environment=os.getenv("SENTRY_ENVIRONMENT", "production"),
+        traces_sample_rate=float(os.getenv("SENTRY_TRACES_SAMPLE_RATE", "0.0")),
+        send_default_pii=False,
+    )
 
 
 JAZZMIN_SETTINGS = {
