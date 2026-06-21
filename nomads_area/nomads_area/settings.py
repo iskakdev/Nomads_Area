@@ -13,14 +13,19 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-me-secret-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = [
+DEFAULT_ALLOWED_HOSTS = [
+    "nomadsarea.com",
+    "www.nomadsarea.com",
+    "161.97.68.234",
+    "localhost",
+    "127.0.0.1",
+]
+ENV_ALLOWED_HOSTS = [
     host.strip()
-    for host in os.getenv(
-        "ALLOWED_HOSTS",
-        "nomadsarea.com,www.nomadsarea.com,161.97.68.234,localhost,127.0.0.1",
-    ).split(",")
+    for host in os.getenv("ALLOWED_HOSTS", "").split(",")
     if host.strip()
 ]
+ALLOWED_HOSTS = list(dict.fromkeys(DEFAULT_ALLOWED_HOSTS + ENV_ALLOWED_HOSTS))
 
 
 # Application definition
