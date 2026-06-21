@@ -129,8 +129,10 @@ class Tour(models.Model):
         verbose_name = "Тур"
         verbose_name_plural = "Туры"
         indexes = [
+            models.Index(fields=["is_active", "-created_at"], name="tour_active_created_idx"),
             models.Index(fields=["tour_type", "is_active"], name="tour_type_active_idx"),
             models.Index(fields=["country", "is_active"], name="tour_country_active_idx"),
+            models.Index(fields=["country", "tour_type", "is_active"], name="tour_country_type_active_idx"),
         ]
 
     def __str__(self):
@@ -184,7 +186,10 @@ class TourDate(models.Model):
         ordering = ["start_date"]
         verbose_name = "Дата тура"
         verbose_name_plural = "Даты групповых туров"
-        indexes = [models.Index(fields=["start_date", "available_spots"], name="tour_date_lookup_idx")]
+        indexes = [
+            models.Index(fields=["start_date", "available_spots"], name="tour_date_lookup_idx"),
+            models.Index(fields=["tour", "start_date"], name="tour_date_tour_start_idx"),
+        ]
 
     def __str__(self):
         return f"{self.tour.title} ({self.start_date})"
@@ -224,6 +229,7 @@ class FAQ(models.Model):
         ordering = ["order", "id"]
         verbose_name = "FAQ"
         verbose_name_plural = "FAQ"
+        indexes = [models.Index(fields=["tour", "is_active", "order"], name="faq_tour_active_order_idx")]
 
     def __str__(self):
         return self.question
@@ -248,6 +254,7 @@ class ExtraService(models.Model):
     class Meta:
         verbose_name = "Дополнительная услуга"
         verbose_name_plural = "Дополнительные услуги"
+        indexes = [models.Index(fields=["tour", "is_active"], name="extra_service_tour_active_idx")]
 
     def __str__(self):
         return self.title
@@ -281,6 +288,10 @@ class Attraction(models.Model):
         ordering = ["name"]
         verbose_name = "Достопримечательность"
         verbose_name_plural = "Достопримечательности"
+        indexes = [
+            models.Index(fields=["city", "is_active"], name="attraction_city_active_idx"),
+            models.Index(fields=["is_active", "name"], name="attraction_active_name_idx"),
+        ]
 
     def __str__(self):
         return self.name
@@ -334,6 +345,11 @@ class Booking(models.Model):
         ordering = ["-created_at"]
         verbose_name = "Бронь"
         verbose_name_plural = "Бронирования"
+        indexes = [
+            models.Index(fields=["status", "-created_at"], name="booking_status_created_idx"),
+            models.Index(fields=["tour", "status"], name="booking_tour_status_idx"),
+            models.Index(fields=["tour_date", "status"], name="booking_date_status_idx"),
+        ]
 
     def __str__(self):
         return f"Бронь #{self.id}"
@@ -402,6 +418,7 @@ class QuizQuestion(models.Model):
         ordering = ["order", "id"]
         verbose_name = "Вопрос квиза"
         verbose_name_plural = "Вопросы квиза"
+        indexes = [models.Index(fields=["is_active", "order"], name="quiz_question_active_order_idx")]
 
     def __str__(self):
         return self.question_text
@@ -433,6 +450,7 @@ class QuizLead(models.Model):
         ordering = ["-created_at"]
         verbose_name = "Заявка из квиза"
         verbose_name_plural = "Заявки из квиза"
+        indexes = [models.Index(fields=["status", "-created_at"], name="quiz_lead_status_created_idx")]
 
     def __str__(self):
         return f"Лид #{self.id}"
@@ -449,6 +467,7 @@ class QuizProgress(models.Model):
     class Meta:
         verbose_name = "Прогресс квиза"
         verbose_name_plural = "Прогрессы"
+        indexes = [models.Index(fields=["updated_at"], name="quiz_progress_updated_idx")]
 
     def __str__(self):
         return f"Сессия {self.session_key}"
@@ -469,6 +488,7 @@ class ContactRequest(models.Model):
         ordering = ["-created_at"]
         verbose_name = "Контактная заявка"
         verbose_name_plural = "Контактные заявки"
+        indexes = [models.Index(fields=["status", "-created_at"], name="contact_status_created_idx")]
 
     def __str__(self):
         return f"Заявка #{self.id}"

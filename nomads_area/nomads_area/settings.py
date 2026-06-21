@@ -13,7 +13,14 @@ SECRET_KEY = os.getenv("SECRET_KEY", "change-me-secret-key")
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv("DEBUG", "False") == "True"
 
-ALLOWED_HOSTS = ["nomadsarea.com", "www.nomadsarea.com", "161.97.68.234", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = [
+    host.strip()
+    for host in os.getenv(
+        "ALLOWED_HOSTS",
+        "nomadsarea.com,www.nomadsarea.com,161.97.68.234,localhost,127.0.0.1",
+    ).split(",")
+    if host.strip()
+]
 
 
 # Application definition
@@ -78,7 +85,7 @@ DATABASES = {
         "PASSWORD": os.getenv("DB_PASSWORD", ""),
         "HOST": os.getenv("DB_HOST", "localhost"),
         "PORT": int(os.getenv("DB_PORT", 5432)),
-        "CONN_MAX_AGE": 60,
+        "CONN_MAX_AGE": int(os.getenv("DB_CONN_MAX_AGE", "60")),
     }
 }
 
