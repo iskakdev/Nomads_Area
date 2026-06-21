@@ -1,4 +1,4 @@
-# Nomads Area - Backend API
+# Nomads Area - бэкенд API
 
 > REST API для туристической платформы по Центральной Азии. Django + DRF + PostgreSQL.
 
@@ -33,7 +33,7 @@ Nomads Area - платформа для бронирования туров по
 
 | Компонент | Технология |
 |-----------|------------|
-| Backend | Python 3.12, Django 5.2 |
+| Бэкенд | Python 3.12, Django 5.2 |
 | API | Django REST Framework |
 | База данных | PostgreSQL 16 |
 | Очереди | Celery + Redis |
@@ -51,7 +51,7 @@ Nomads Area - платформа для бронирования туров по
 | Домен | https://nomadsarea.com |
 | Сервер | Contabo VPS, Ubuntu 24.04 |
 | Swagger | https://nomadsarea.com/api/docs/ |
-| Admin | https://nomadsarea.com/admin/ |
+| Админка | https://nomadsarea.com/admin/ |
 
 ---
 
@@ -140,9 +140,9 @@ systemctl restart nomadsarea-celery
 
 ---
 
-## API endpoints
+## API-эндпоинты
 
-Все публичные endpoints имеют языковой префикс: `/api/ru/`, `/api/en/`, `/api/es/`, `/api/fr/`, `/api/de/`.
+Все публичные эндпоинты имеют языковой префикс: `/api/ru/`, `/api/en/`, `/api/es/`, `/api/fr/`, `/api/de/`.
 
 ### Контент
 
@@ -265,7 +265,7 @@ Nomads_Area/
     +-- tasks.py
     +-- translation.py
     +-- admin.py
-    +-- throttles.py
+    +-- ограничение частоты запросовs.py
     +-- exceptions.py
 ```
 
@@ -283,7 +283,7 @@ Nomads_Area/
 | `TELEGRAM_BOT_TOKEN` | Токен бота |
 | `TELEGRAM_CHAT_ID` | ID чата для уведомлений |
 | `EMAIL_HOST_USER` | Gmail аккаунт |
-| `EMAIL_HOST_PASSWORD` | App password Gmail |
+| `EMAIL_HOST_PASSWORD` | пароль приложения Gmail |
 | `API_DOCS_ENABLED` | Включить Swagger (`True`/`False`) |
 | `CORS_ALLOWED_ORIGINS` | Разрешённые origins фронтенда |
 | `CSRF_TRUSTED_ORIGINS` | Доверенные origins для CSRF |
@@ -304,522 +304,20 @@ python manage.py spectacular --file schema.yaml --validate
 
 ---
 
----
-
 ## Документация
 
-Вся Markdown-документация проекта объединена в этом `README.md`, чтобы следующий разработчик и менеджер работали из одного файла.
+Дополнительные документы:
 
-Дополнительный не-Markdown документ:
+- `MANAGER_GUIDE.md` - руководство менеджера.
+- `docs/Architecture.docx` - архитектура бэкенда в Word-формате.
 
-- `docs/Architecture.docx` — архитектура backend в Word-формате.
-
-
----
-
-# Руководство менеджера
-
-> Это руководство поможет вам работать с административной панелью сайта Nomads Area.
-> Здесь описано как добавлять туры, обрабатывать бронирования, отвечать на заявки и настраивать сайт.
-
-**Адрес админ-панели:** https://nomadsarea.com/admin/
 
 ---
 
-## Содержание
-
-1. [Вход в систему](#1-вход-в-систему)
-2. [Главная страница](#2-главная-страница)
-3. [Настройки сайта](#3-настройки-сайта)
-4. [Туры](#4-туры)
-5. [Страны и города](#5-страны-и-города)
-6. [Категории туров](#6-категории-туров)
-7. [Бронирования](#7-бронирования)
-8. [Контактные заявки](#8-контактные-заявки)
-9. [Квиз и лиды](#9-квиз-и-лиды)
-10. [Отзывы](#10-отзывы)
-11. [Достопримечательности](#11-достопримечательности)
-12. [Команда](#12-команда)
-13. [Переводы RU/EN/ES/FR/DE](#13-переводы-ruenesfrde)
-14. [FAQ по турам](#14-faq-по-турам)
-15. [Частые вопросы](#15-частые-вопросы)
-
----
-
-## 1. Вход в систему
-
-Откройте браузер и перейдите по адресу:
-
-```
-https://nomadsarea.com/admin/
-```
-
-Введите логин и пароль. Если забыли пароль — обратитесь к разработчику.
-
----
-
-## 2. Главная страница
-
-После входа вы увидите список разделов. Вот что вам нужно чаще всего:
-
-| Раздел | Для чего |
-|--------|----------|
-| **Туры** | Добавлять и редактировать туры |
-| **Бронирования** | Обрабатывать заявки клиентов |
-| **Контактные заявки** | Отвечать на обращения |
-| **Лиды из квиза** | Обрабатывать заявки с квиза |
-| **Настройки сайта** | Контакты, соцсети, тексты |
-
----
-
-## 3. Настройки сайта
-
-Раздел: **Настройки сайта → Настройки сайта**
-
-Здесь хранится вся общая информация о компании, которая отображается на сайте.
-
-> **Важно:** Настройки существуют в одном экземпляре. Не создавайте новую запись — редактируйте существующую.
-
-### Контакты
-
-| Поле | Описание |
-|------|----------|
-| Телефон | Основной номер |
-| WhatsApp | Номер для WhatsApp |
-| Email | Почта компании |
-
-### Социальные сети
-
-Ссылки на Instagram, Facebook, YouTube, TikTok, TripAdvisor.
-
-### О компании
-
-| Поле | Описание |
-|------|----------|
-| Текст "О нас" | Описание компании |
-| Видео о компании | Загрузите видеофайл через поле выбора файла |
-| Лет опыта | Цифра на главной странице |
-| Количество туристов | Цифра статистики |
-| Количество маршрутов | Цифра статистики |
-
----
-
-## 4. Туры
-
-Раздел: **Туры → Туры**
-
-### Создание нового тура
-
-Нажмите **+ Добавить тур** в правом верхнем углу.
-
----
-
-### Основная информация
-
-| Поле | Описание |
-|------|----------|
-| Название тура | Отображается на сайте |
-| Тип тура | Групповой или Приватный |
-| Активен | Включите, чтобы тур показывался на сайте |
-| Страна | Выбрать из списка |
-| Город | Основной город тура |
-| Категории | Можно выбрать несколько |
-
----
-
-### Параметры
-
-| Поле | Описание |
-|------|----------|
-| Сезон | Круглый год / Тёплый / Зима |
-| Длительность (дней) | Количество дней тура |
-| Сложность | 1 — Лёгкий, 2 — Средний, 3 — Сложный |
-| Максимум людей | Для групповых туров |
-| Цена | За человека (для групповых) или минимальная (для приватных) |
-| Валюта | USD или KGS |
-
----
-
-### Описание
-
-| Поле | Описание |
-|------|----------|
-| Описание | Краткое описание тура |
-| Что включено | Список через запятую или текстом |
-| Что не включено | Список через запятую или текстом |
-
----
-
-### Фотографии
-
-В блоке **Фото тура**:
-- Нажмите **Добавить ещё одно фото**
-- Загрузите фото (JPG или PNG, рекомендуется 1920×1080)
-- Первое фото станет обложкой в каталоге
-
----
-
-### Программа по дням
-
-В блоке **Маршрут по дням** добавьте описание каждого дня тура:
-
-| Поле | Описание |
-|------|----------|
-| Номер дня | 1, 2, 3... |
-| Заголовок | Краткое название дня |
-| Описание | Подробное описание |
-| Высота | Например: 3500 м |
-| Пешая дистанция | Например: 8 км |
-| Дистанция на машине | Например: 120 км |
-| Проживание | Юрта / Гостиница / Кемпинг |
-
----
-
-### Даты заездов (только для групповых туров)
-
-В блоке **Даты заезда**:
-
-| Поле | Описание |
-|------|----------|
-| Дата начала | Дата старта тура |
-| Дата окончания | Дата завершения |
-| Доступные места | Количество свободных мест |
-
-> Для **приватных туров** даты не нужны — клиент сам указывает желаемые даты при бронировании.
-
----
-
-### Ценовые тиры (только для приватных туров)
-
-В блоке **Цены приватных туров** укажите цену в зависимости от размера группы:
-
-| Поле | Описание |
-|------|----------|
-| Минимум людей | Например: 1 |
-| Максимум людей | Например: 3 (оставьте пустым — значит "и более") |
-| Цена за человека | Например: 450 |
-
-Пример заполнения:
-
-```
-1–2 чел  →  600$ за человека
-3–5 чел  →  450$ за человека
-6+  чел  →  350$ за человека
-```
-
-> Диапазоны не должны пересекаться — система покажет ошибку.
-
----
-
-### Точки маршрута (карта)
-
-В блоке **Точки маршрута** добавьте координаты для отображения на карте:
-1. Найдите точку на Google Maps
-2. Скопируйте широту и долготу
-3. Укажите название точки
-
----
-
-### Сохранение
-
-Нажмите **Сохранить** в правом нижнем углу. Тур появится на сайте, если стоит галочка **Активен**.
-
----
-
-## 5. Страны и города
-
-### Страны
-
-Раздел: **Туры → Страны**
-
-| Поле | Описание |
-|------|----------|
-| Название страны | Отображается на сайте |
-| Изображение | Главное фото |
-| Символ страны | Иконка или флаг |
-| Описание | Текст для страницы страны |
-
-### Города
-
-Раздел: **Туры → Города**
-
-| Поле | Описание |
-|------|----------|
-| Страна | К какой стране относится |
-| Название города | Отображается на сайте |
-| Изображение города | Главное фото |
-
----
-
-## 6. Категории туров
-
-Раздел: **Туры → Категории туров**
-
-Примеры: Горные туры, Конные туры, Культурные, Трекинг.
-
-| Поле | Описание |
-|------|----------|
-| Название | Отображается на сайте |
-| Иконка | Изображение категории |
-| Активна | Показывать ли на сайте |
-
----
-
-## 7. Бронирования
-
-Раздел: **Бронирования → Бронирования**
-
-Здесь отображаются все заявки на туры.
-
-### Статусы
-
-| Статус | Значение |
-|--------|----------|
-| **Ожидает** | Новая заявка, ожидает решения менеджера |
-| **Подтверждён** | Бронь подтверждена, место зарезервировано |
-| **Отменён** | Клиент или менеджер отменил |
-| **Отклонён** | Нет мест или ошибка |
-
-### Как подтвердить бронирование
-
-1. Поставьте галочку рядом с бронированием
-2. Выберите действие **Подтвердить и зарезервировать места**
-3. Статус изменится на **Подтверждён**, места спишутся автоматически
-
----
-
-### Массовые действия
-
-1. Поставьте галочки на нужных бронях
-2. В меню **Действие** выберите:
-   - **Подтвердить и зарезервировать места**
-   - **Отменить выбранные брони**
-
----
-
-### Поля бронирования
-
-| Поле | Описание |
-|------|----------|
-| Клиент | Имя и контакт |
-| Тур | Название тура |
-| Дата тура | Для групповых туров |
-| Желаемые даты | Для приватных туров |
-| Количество людей | Взрослые + дети |
-| Цена за человека | Рассчитана системой |
-| Итоговая цена | Полная стоимость |
-| Статус | Текущий статус |
-
----
-
-## 8. Контактные заявки
-
-Раздел: **Контакты → Контактные заявки**
-
-Обращения с контактной формы сайта.
-
-### Как обработать
-
-1. Откройте заявку
-2. Свяжитесь с клиентом по указанному контакту
-3. Измените статус на **Отвечено**
-
-### Статусы
-
-| Статус | Значение |
-|--------|----------|
-| **Ожидает ответа** | Новое обращение |
-| **Отвечено** | Менеджер ответил |
-
----
-
-## 9. Квиз и лиды
-
-Раздел: **Квиз → Заявки с квиза**
-
-Лиды от пользователей, прошедших квиз на сайте.
-
-### Как обработать лид
-
-1. Откройте лид
-2. Посмотрите **Ответы пользователя** — там его предпочтения
-3. Свяжитесь с клиентом по телефону или Telegram
-4. Отметьте статус **Обработан**
-
----
-
-### Настройка вопросов квиза
-
-Раздел: **Квиз → Вопросы квиза**
-
-Можно менять без разработчика:
-- Добавить или удалить вопрос
-- Изменить текст вопроса и варианты ответов
-- Изменить порядок вопросов
-
-> Если пользователь начинает квиз повторно — его прогресс сбрасывается автоматически.
-
----
-
-## 10. Отзывы
-
-Собственной базы отзывов в системе нет. Отзывы на сайте показываются через два внешних виджета.
-
-| Виджет | Тип | Как настроить |
-|--------|-----|---------------|
-| Google Reviews | Elfsight (платный) | Вставить App ID |
-| TripAdvisor | Elfsight/внешний виджет | Указать App ID или настройки виджета, если он подключён |
-
----
-
-### Как подключить Google Reviews (Elfsight)
-
-1. Зарегистрируйтесь на [elfsight.com](https://elfsight.com)
-2. Создайте виджет **Google Reviews**
-3. Скопируйте **App ID**
-4. В Admin: **Настройки сайта → Виджеты отзывов → Elfsight Google Reviews App ID**
-
----
-
-### Как подключить TripAdvisor
-
-1. Подготовьте виджет через используемый сервис виджетов
-2. Скопируйте App ID или настройки, которые нужны фронтенду
-3. В Admin: **Настройки сайта → Виджеты отзывов**
-
----
-
-### Включить или выключить виджеты
-
-**Настройки сайта → переключатель "Виджеты отзывов включены"**
-
----
-
-## 11. Достопримечательности
-
-Раздел: **Достопримечательности → Достопримечательности**
-
-Места, которые показываются на странице города и в связанных турах.
-
-### Как добавить
-
-1. Выберите **Город**
-2. Введите **Название** и **Описание**
-3. Загрузите **Главное изображение**
-4. В блоке **Галерея** добавьте дополнительные фото
-5. В поле **Связанные туры** выберите туры, где посещается это место
-
----
-
-## 12. Команда
-
-Раздел: **Команда → Сотрудники**
-
-Отображается в разделе "О нас" на сайте.
-
-| Поле | Описание |
-|------|----------|
-| ФИО | Полное имя |
-| Должность | Например: Гид, Менеджер |
-| Описание | Краткая биография |
-| Фото | Портретное фото |
-| Порядок | Позиция в списке (0 = первый) |
-| Активен | Показывать ли на сайте |
-
----
-
-## 13. Переводы RU/EN/ES/FR/DE
-
-Большинство текстовых полей имеют вкладки: **Русский**, **English**, **Español**, **Français**, **Deutsch**.
-
-Чтобы сайт выглядел корректно на всех языках — заполняйте все языковые вкладки.
-
-**Где встречаются переводы:**
-
-- Название и описание тура
-- Программа по дням и FAQ
-- Страны, города, категории
-- Достопримечательности
-- Вопросы квиза
-- Текст о компании
-- Команда
-
-> Если перевод не заполнен, на соответствующей языковой версии может появиться fallback или пустой текст.
-
----
-
-## 14. FAQ по турам
-
-Раздел: **FAQ → FAQ**
-
-Вопросы и ответы, которые показываются на странице конкретного тура.
-
-- Привязаны к конкретному туру
-- Порядок меняется через поле **Порядок**
-- Скрыть можно через галочку **Активен**
-
----
-
-## 15. Частые вопросы
-
----
-
-**Тур создан, но не отображается на сайте?**
-
-Проверьте что стоит галочка **Активен** у тура.
-
----
-
-**Клиент не может забронировать — пишет "нет мест"?**
-
-Туры → найдите тур → Даты заезда → проверьте поле **Доступные места**.
-
----
-
-**Бронирование не подтверждается?**
-
-Откройте бронь и проверьте статус, тур, дату и доступные места. Онлайн-платежей сейчас нет, оплату менеджер обрабатывает физически/вручную.
-
----
-
-**Не приходят уведомления в Telegram?**
-
-Сообщите разработчику — нужно проверить токен бота и настройки.
-
----
-
-**Как изменить цену тура?**
-
-Туры → найдите тур → измените поле **Цена** → Сохранить.
-
-> Изменение цены не затронет уже созданные бронирования.
-
----
-
-**Клиент хочет отменить бронирование?**
-
-- Бронирования → выберите бронь → действие **Отменить выбранные брони**
-- Если клиент уже оплатил физически, возврат обрабатывается вручную по правилам компании.
-
----
-
-**Не работает виджет отзывов?**
-
-1. Проверьте переключатель **Виджеты отзывов включены** в Настройках сайта
-2. Если включён — проверьте правильность App ID или настроек внешнего виджета
-
----
-
-*По техническим вопросам обращайтесь к разработчику.*
-
-
----
-
-# Operations checklist
-
+# Чеклист эксплуатации
 Документ для безопасной эксплуатации production. Не храните здесь пароли, токены, SMTP-ключи и доступы.
 
-## 1. Backend deploy
+## 1. Деплой бэкенда
 
 ```bash
 cd /root/Nomads_Area
@@ -836,7 +334,7 @@ sudo systemctl restart nomadsarea-celery
 sudo systemctl is-active nomadsarea nomadsarea-celery
 ```
 
-## 2. Frontend deploy
+## 2. Деплой фронтенда
 
 ```bash
 cd /root/nomads-area
@@ -849,7 +347,7 @@ pm2 restart nomads-frontend --update-env
 pm2 save
 ```
 
-## 3. Database backup
+## 3. Резервная копия базы данных
 
 Создавайте backup перед миграциями и крупными изменениями данных.
 
@@ -860,7 +358,7 @@ cd /root/Nomads_Area
 bash scripts/backup_database.sh
 ```
 
-По умолчанию backup хранится в `/var/backups/nomads-area`, старые DB backup старше 14 дней удаляются.
+По умолчанию backup хранится в `/var/backups/nomads-area`, старые резервная копия БД старше 14 дней удаляются.
 
 Проверка восстановления backup:
 
@@ -871,7 +369,7 @@ bash scripts/restore_database_check.sh /var/backups/nomads-area/db-....dump
 
 Скрипт создаёт временную PostgreSQL базу, восстанавливает dump, проверяет наличие таблиц и удаляет временную базу.
 
-## 4. Media backup
+## 4. Резервная копия медиафайлов
 
 Файлы из `MEDIA_ROOT` нужно бэкапить отдельно от PostgreSQL.
 
@@ -884,7 +382,7 @@ bash scripts/backup_media.sh
 
 По умолчанию media backup хранится в `/var/backups/nomads-area`, старые media backup старше 14 дней удаляются.
 
-## 5. Automatic backups
+## 5. Автоматические резервные копии
 
 Установить systemd timers:
 
@@ -895,8 +393,8 @@ bash scripts/install_backup_timers.sh
 
 Расписание:
 
-- DB backup: каждый день в 03:15
-- Media backup: каждый день в 03:35
+- резервная копия БД: каждый день в 03:15
+- резервная копия медиа: каждый день в 03:35
 
 Проверить timers:
 
@@ -906,11 +404,11 @@ journalctl -u nomads-backup-database.service -n 100 --no-pager
 journalctl -u nomads-backup-media.service -n 100 --no-pager
 ```
 
-## 6. Media storage / CDN
+## 6. Хранение медиафайлов и CDN
 
-Сейчас media может храниться на сервере. Для роста проекта лучше вынести media в S3-compatible storage + CDN, чтобы сервер не был единственной точкой хранения фотографий и видео.
+Сейчас media может храниться на сервере. Для роста проекта лучше вынести media в S3-совместимое хранилище и CDN, чтобы сервер не был единственной точкой хранения фотографий и видео.
 
-Backend уже поддерживает opt-in режим. В `.env`:
+Бэкенд уже поддерживает режим включения через переменные окружения. В `.env`:
 
 ```dotenv
 USE_S3_STORAGE=True
@@ -934,7 +432,7 @@ python manage.py check
 sudo systemctl restart nomadsarea
 ```
 
-## 7. Error monitoring
+## 7. Мониторинг ошибок
 
 Для Sentry достаточно добавить DSN в `.env`:
 
@@ -951,9 +449,9 @@ sudo systemctl restart nomadsarea
 sudo systemctl restart nomadsarea-celery
 ```
 
-`SENTRY_TRACES_SAMPLE_RATE=0.0` означает: ошибки отправляются, performance tracing выключен. Если потом понадобится performance monitoring, можно поднять до `0.05` или `0.1`.
+`SENTRY_TRACES_SAMPLE_RATE=0.0` означает: ошибки отправляются, трассировка производительности выключена. Если потом понадобится мониторинг производительности, можно поднять до `0.05` или `0.1`.
 
-## 8. Smoke checks after deploy
+## 8. Smoke-проверки после деплоя
 
 ```bash
 for locale in ru en es fr de; do
@@ -982,16 +480,16 @@ cd /root/Nomads_Area
 bash scripts/smoke_check.sh
 ```
 
-## 9. Load-test rules
+## 9. Правила нагрузочного тестирования
 
 Не запускать массовый POST на production. Он создаёт реальные брони/лиды/уведомления.
 
 Для честного GET-теста:
 
 - запускать нагрузку с отдельной VPS;
-- заранее проверить, что throttle не превращает тест в поток `429`;
-- мониторить `journalctl`, RAM, CPU, PostgreSQL connections;
-- прекращать тест при `5xx`, worker timeout, росте swap или p99 выше 2–3 секунд.
+- заранее проверить, что ограничение частоты запросов не превращает тест в поток `429`;
+- мониторить `journalctl`, RAM, CPU, подключения PostgreSQL;
+- прекращать тест при `5xx`, таймаут worker-процесса, росте swap или p99 выше 2-3 секунд.
 
 Пример wrk:
 
@@ -1000,7 +498,7 @@ bash scripts/smoke_check.sh
   https://www.nomadsarea.com/api/en/tours/54/
 ```
 
-## 10. Admin data safety
+## 10. Безопасность данных из админки
 
 - Если тур выключен через `Активен`, backend не должен принимать новую бронь на этот тур.
 - Достопримечательность должна быть одной записью, связанной с несколькими турами, а не дублями.
@@ -1009,56 +507,56 @@ bash scripts/smoke_check.sh
 
 ---
 
-# Developer handoff
+# Передача проекта разработчику
 
 Этот документ нужен следующему разработчику, чтобы быстро понять текущее состояние проекта, правила работы и критичные места. Не храните здесь секреты, токены, пароли и реальные ключи.
 
-## Repositories and production paths
+## Репозитории и production-пути
 
-Backend:
+Бэкенд:
 
 - GitHub: `iskakdev/Nomads_Area`
-- Production path: `/root/Nomads_Area`
-- Django project path: `/root/Nomads_Area/nomads_area`
-- Virtualenv: `/root/Nomads_Area/venv`
-- Main service: `nomadsarea`
-- Celery service: `nomadsarea-celery`
+- Путь на production: `/root/Nomads_Area`
+- Путь Django-проекта: `/root/Nomads_Area/nomads_area`
+- Виртуальное окружение: `/root/Nomads_Area/venv`
+- Основной сервис: `nomadsarea`
+- Celery-сервис: `nomadsarea-celery`
 
-Frontend:
+Фронтенд:
 
 - GitHub: `kubanych-js/nomads-area`
-- Production path: `/root/nomads-area`
-- Process manager: PM2
-- PM2 process: `nomads-frontend`
+- Путь на production: `/root/nomads-area`
+- Менеджер процессов: PM2
+- PM2-процесс: `nomads-frontend`
 
-Production domain:
+Production-домен:
 
-- Public site: `https://www.nomadsarea.com`
-- Backend API is exposed under `/api/...` through Nginx.
+- Публичный сайт: `https://www.nomadsarea.com`
+- API бэкенда доступен через `/api/...` и проксируется Nginx.
 
-## Current backend stack
+## Текущий стек бэкенда
 
 - Django 5.2.x
 - Django REST Framework
 - PostgreSQL
-- Redis cache
+- Redis-кэш
 - Celery
-- django-modeltranslation for RU/EN/ES/FR/DE model fields
-- django-jazzmin admin
-- Optional Sentry, disabled until `SENTRY_DSN` is set
-- Optional S3-compatible media storage, disabled until `USE_S3_STORAGE=True`
+- django-modeltranslation для полей моделей RU/EN/ES/FR/DE
+- админка на django-jazzmin
+- Sentry опционален и выключен, пока не задан `SENTRY_DSN`
+- S3-совместимое хранилище медиа опционально и выключено, пока не задано `USE_S3_STORAGE=True`
 
-## Dependency files
+## Файлы зависимостей
 
-There is one canonical backend dependency list:
+Единственный основной список зависимостей бэкенда:
 
 - `nomads_area/requirements.txt`
 
-The repository-root file exists only as a deploy convenience:
+Файл в корне репозитория оставлен только для удобного деплоя:
 
-- `requirements.txt` contains `-r nomads_area/requirements.txt`
+- `requirements.txt` содержит `-r nomads_area/requirements.txt`
 
-This allows both commands to work:
+Поэтому работают обе команды:
 
 ```bash
 cd /root/Nomads_Area
@@ -1070,17 +568,17 @@ cd /root/Nomads_Area/nomads_area
 pip install -r requirements.txt
 ```
 
-When adding backend dependencies, update only `nomads_area/requirements.txt`.
+При добавлении зависимостей бэкенда обновляйте только `nomads_area/requirements.txt`.
 
-## Required production environment
+## Обязательное production-окружение
 
-Production env file is on the server:
+Production-файл окружения на сервере:
 
 ```bash
 /root/Nomads_Area/nomads_area/.env
 ```
 
-Important variables:
+Важные переменные:
 
 ```dotenv
 DEBUG=False
@@ -1097,25 +595,25 @@ CELERY_RESULT_BACKEND=redis://localhost:6379/0
 CORS_ALLOWED_ORIGINS=https://www.nomadsarea.com,https://nomadsarea.com
 ```
 
-`DEBUG` must stay `False` in production. If it becomes `True`, Django can expose debug pages with internal settings and stack traces.
+`DEBUG` должен оставаться `False` на production. Если поставить `True`, Django может показать debug-страницы с внутренними настройками и stack trace.
 
-## Health and smoke checks
+## Health- и smoke-проверки
 
-Public health endpoints:
+Публичные health-эндпоинты:
 
 ```bash
 curl -fsS https://www.nomadsarea.com/api/healthz/
 curl -fsS https://www.nomadsarea.com/api/readyz/
 ```
 
-Full smoke check:
+Полная smoke-проверка:
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/smoke_check.sh
 ```
 
-Expected output includes:
+Ожидаемый вывод содержит:
 
 ```text
 ru tour detail OK
@@ -1127,7 +625,7 @@ attractions country filter OK
 smoke checks OK
 ```
 
-## Backend deploy
+## Деплой бэкенда
 
 ```bash
 cd /root/Nomads_Area
@@ -1148,7 +646,7 @@ cd /root/Nomads_Area
 bash scripts/smoke_check.sh
 ```
 
-## Frontend deploy
+## Деплой фронтенда
 
 ```bash
 cd /root/nomads-area
@@ -1161,36 +659,36 @@ pm2 restart nomads-frontend --update-env
 pm2 save
 ```
 
-## Backup and restore
+## Резервные копии и восстановление
 
-Manual database backup:
+Ручная резервная копия базы данных:
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/backup_database.sh
 ```
 
-Manual media backup:
+Ручная резервная копия медиафайлов:
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/backup_media.sh
 ```
 
-Install automatic systemd timers:
+Установка автоматических systemd timers:
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/install_backup_timers.sh
 ```
 
-Default schedule:
+Расписание по умолчанию:
 
-- DB backup daily at 03:15
-- Media backup daily at 03:35
-- Backup retention: 14 days
+- резервная копия базы данных каждый день в 03:15
+- резервная копия медиафайлов каждый день в 03:35
+- срок хранения резервных копий: 14 дней
 
-Check timers:
+Проверка timers:
 
 ```bash
 systemctl list-timers 'nomads-backup-*' --no-pager
@@ -1198,20 +696,20 @@ journalctl -u nomads-backup-database.service -n 100 --no-pager
 journalctl -u nomads-backup-media.service -n 100 --no-pager
 ```
 
-Check database restore:
+Проверка восстановления базы данных:
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/restore_database_check.sh /var/backups/nomads-area/db-....dump
 ```
 
-The restore check creates a temporary PostgreSQL database, restores the dump, validates that public tables exist, then drops the temporary database.
+Проверка восстановления создаёт временную PostgreSQL-базу, восстанавливает dump, проверяет наличие таблиц в схеме public и удаляет временную базу.
 
-## Optional Sentry setup
+## Опциональная настройка Sentry
 
-Sentry is optional and does nothing until `SENTRY_DSN` is set.
+Sentry опционален и не работает, пока не задан `SENTRY_DSN`.
 
-Add to `.env`:
+Добавить в `.env`:
 
 ```dotenv
 SENTRY_DSN=https://...
@@ -1219,20 +717,20 @@ SENTRY_ENVIRONMENT=production
 SENTRY_TRACES_SAMPLE_RATE=0.0
 ```
 
-Then:
+Затем:
 
 ```bash
 sudo systemctl restart nomadsarea
 sudo systemctl restart nomadsarea-celery
 ```
 
-Use `SENTRY_TRACES_SAMPLE_RATE=0.0` initially. It sends errors without performance tracing. Raise to `0.05` or `0.1` only when performance data is needed.
+Сначала используйте `SENTRY_TRACES_SAMPLE_RATE=0.0`: ошибки будут отправляться, а трассировка производительности будет выключен. Поднимайте до `0.05` или `0.1` только если нужны данные производительности.
 
-## Optional S3/CDN media setup
+## Опциональная настройка S3/CDN для медиа
 
-S3-compatible storage is optional and disabled by default.
+S3-совместимое хранилище опционально и по умолчанию выключено.
 
-Add to `.env` only when the bucket/CDN is ready:
+Добавляйте в `.env` только после подготовки bucket/CDN:
 
 ```dotenv
 USE_S3_STORAGE=True
@@ -1245,7 +743,7 @@ AWS_S3_CUSTOM_DOMAIN=cdn.example.com
 AWS_LOCATION=media
 ```
 
-Then:
+Затем:
 
 ```bash
 cd /root/Nomads_Area/nomads_area
@@ -1254,39 +752,39 @@ python manage.py check
 sudo systemctl restart nomadsarea
 ```
 
-Do not turn on S3 until media migration is planned. Existing local files will not magically move to S3.
+Не включайте S3 без плана миграции медиафайлов. Уже загруженные локальные файлы сами не переедут в S3.
 
-## Important business logic
+## Важная бизнес-логика
 
-### Active tours
+### Активные туры
 
-If a tour is inactive, frontend should stop showing it after cache/revalidation, but backend must also reject booking attempts. Backend validation is the final safety layer.
+Если тур неактивен, фронтенд должен перестать показывать его после обновления кэша/ревалидации, но бэкенд также обязан отклонять попытки бронирования. Проверка на бэкенде - финальный защитный слой.
 
-### Bookings
+### Бронирования
 
-Booking creation validates:
+При создании брони проверяется:
 
-- tour exists;
-- tour is active;
-- selected tour date belongs to the selected tour;
-- extra services belong to the selected tour;
-- group tour seats are available;
-- duplicate request fingerprints are handled.
+- тур существует;
+- тур активен;
+- выбранная дата относится к выбранному туру;
+- дополнительные услуги относятся к выбранному туру;
+- для группового тура есть свободные места;
+- дубли заявок обрабатываются через fingerprint.
 
-### Attractions
+### Достопримечательности
 
-Attraction should be one record connected to many tours, not duplicated per tour.
+Достопримечательность должна быть одной записью, связанной со многими турами, а не дублем под каждый тур.
 
-Correct shape:
+Правильная схема:
 
 ```text
-Attraction
-  ├── private tour A
-  ├── group tour B
-  └── private tour C
+Достопримечательность
+  ├── приватный тур A
+  ├── групповой тур B
+  └── приватный тур C
 ```
 
-Country filtering exists for attractions:
+Фильтрация достопримечательностей по стране:
 
 ```text
 /api/ru/attractions/?country=Казахстан
@@ -1294,21 +792,21 @@ Country filtering exists for attractions:
 /api/ru/attractions/?country=<country_id>
 ```
 
-### Quiz branching
+### Ветвление квиза
 
-Quiz branching must stop after the selected branch. A selected option with `next_question` should lead only to that branch. Other branches should not appear after a concrete branch has been selected.
+Ветвление квиза должно останавливаться на выбранной ветке. Вариант ответа с `next_question` ведёт только в свою ветку. Другие ветки не должны появляться после выбора конкретной ветки.
 
-## Caching rule
+## Правило по кэшу
 
-The frontend cache/revalidate policy was intentionally left as-is after the latest discussion. Do not change frontend cache behavior casually.
+Политика кэша/ревалидации фронтенда намеренно оставлена как есть после последнего обсуждения. Не меняйте поведение кэша фронтенда без отдельного решения.
 
-Backend still protects critical actions. Example: even if a stale frontend page shows an inactive tour, backend must reject booking.
+Бэкенд всё равно защищает критичные действия. Например: даже если старая страница фронтенда показывает неактивный тур, бэкенд должен отклонить бронирование.
 
-## Known operational gotchas
+## Известные эксплуатационные нюансы
 
-- `https://www.nomadsarea.com/healthz/` may hit frontend/redirects depending on Nginx. Use `/api/healthz/` and `/api/readyz/` for backend health.
-- `/api/not-existing-debug-check/` can be interpreted as a locale route. Use `/api/ru/not-existing-debug-check/` to test a real backend 404.
-- `DEBUG=False` must be verified after deploy:
+- `https://www.nomadsarea.com/healthz/` может попасть во фронтенд или редирект в зависимости от Nginx. Для проверки бэкенда используйте `/api/healthz/` и `/api/readyz/`.
+- `/api/not-existing-debug-check/` может быть интерпретирован как маршрут с языком. Для проверки реального 404 используйте `/api/ru/not-existing-debug-check/`.
+- `DEBUG=False` нужно проверять после деплоя:
 
 ```bash
 cd /root/Nomads_Area/nomads_area
@@ -1316,14 +814,14 @@ grep -n '^DEBUG=' .env
 curl -sS -i https://www.nomadsarea.com/api/ru/not-existing-debug-check/ | head -40
 ```
 
-Expected: `404 Not Found`, no Django traceback page.
+Ожидаемо: `404 Not Found`, без Django traceback-страницы.
 
-- Do not run destructive DB commands on production without a fresh backup.
-- Do not run mass POST load tests on production. They create real leads/bookings/notifications.
+- Не запускайте разрушительные DB-команды на production без свежей резервной копии.
+- Не запускайте массовые POST-нагрузочные тесты на production. Они создают реальные лиды, брони и уведомления.
 
-## Tests
+## Тесты
 
-Local/full backend tests:
+Локальные/полные тесты бэкенда:
 
 ```bash
 cd /home/iskhak/PycharmProjects/Nomads_Area
@@ -1331,9 +829,9 @@ source .venv/bin/activate
 python nomads_area/manage.py test nomads_area_app
 ```
 
-Expected latest count was 39 tests. If PostgreSQL test DB already exists, Django asks whether to delete it; answer `yes` only for local/test DB.
+Последнее ожидаемое количество - 39 тестов. Если тестовая PostgreSQL-база уже существует, Django спросит, удалить ли её; отвечайте `yes` только для локальной/тестовой базы.
 
-Non-DB checks:
+Проверки без тестовой базы данных:
 
 ```bash
 python nomads_area/manage.py check
@@ -1344,23 +842,20 @@ bash -n scripts/*.sh
 
 ## GitHub Actions
 
-CI workflow was intentionally not committed because pushing workflow files requires a GitHub token with `workflow` scope. The project owner said they will handle this part.
+CI workflow намеренно не закоммичен, потому что push workflow-файлов требует GitHub token с правом `workflow`. Владелец проекта сказал, что сделает эту часть сам.
 
-Do not ask for tokens in chat. If CI is added, use a short-lived token with limited repository permissions and workflow scope, or add the workflow through GitHub UI.
+Не просите токены в чате. Если добавляете CI, используйте короткоживущий token с ограниченными правами на репозиторий и правом `workflow`, либо добавьте workflow через GitHub UI.
 
 
 ---
 
-# Load testing
+# Нагрузочное тестирование
 
-Run the generator from a VPS separate from the application server. The test
-uses only a read-only tour detail endpoint and treats redirects, throttling and
-server errors as failures.
+Запускайте генератор нагрузки с отдельной VPS, не с сервера приложения. Тест использует только эндпоинт детальной страницы тура только для чтения и считает редиректы, ограничение частоты запросов и серверные ошибки провалом.
 
-## Production preparation
+## Подготовка production
 
-Configure Django to use the shared Redis cache and temporarily raise only the
-anonymous read limit:
+Настройте Django на общий Redis-кэш и временно поднимите только анонимный лимит чтения:
 
 ```env
 CACHE_URL=redis://127.0.0.1:6379/1
@@ -1369,12 +864,11 @@ API_CACHE_TIMEOUT=60
 DRF_ANON_THROTTLE_RATE=1000000/minute
 ```
 
-Restart Gunicorn and verify that repeated requests return `200`. Do not change
-`DRF_FORMS_THROTTLE_RATE`; POST forms are outside this test.
+Перезапустите Gunicorn и проверьте, что повторные запросы возвращают `200`. Не меняйте `DRF_FORMS_THROTTLE_RATE`; POST-формы не входят в этот тест.
 
-## Run
+## Запуск
 
-Install k6 on the load-generator VPS, copy this directory there, then run:
+Установите k6 на VPS для генерации нагрузки, скопируйте туда директорию `loadtest`, затем запустите:
 
 ```bash
 TARGET_URL=https://www.nomadsarea.com/api/en/tours/54/ \
@@ -1384,14 +878,11 @@ VUS_HIGH=50 \
 ./loadtest/run.sh
 ```
 
-Increase `VUS_HIGH` in separate runs: `10`, `25`, `50`, `100`, pausing at
-least 30 seconds between runs. Stop when p99 exceeds 1.5 seconds, any 5xx
-appears, workers time out, CPU stays above 90%, swap grows, or PostgreSQL
-connections approach their limit.
+Увеличивайте `VUS_HIGH` отдельными запусками: `10`, `25`, `50`, `100`, с паузой минимум 30 секунд между запусками. Остановитесь, если p99 выше 1.5 секунды, появились 5xx, таймаут worker-процесса, CPU держится выше 90%, растёт swap или подключения PostgreSQL приближаются к лимиту.
 
-The JSON summary is saved under `loadtest/results/`.
+JSON-отчёт сохраняется в `loadtest/results/`.
 
-## Server monitoring
+## Мониторинг сервера
 
 ```bash
 sudo journalctl -u nomadsarea -f
@@ -1410,5 +901,4 @@ ORDER BY state;
 \""
 ```
 
-After a production test, restore the normal anonymous rate and restart
-Gunicorn. Keep the shared Redis cache enabled.
+После production-теста верните нормальный анонимный лимит и перезапустите Gunicorn. Общий Redis-кэш оставьте включённым.
