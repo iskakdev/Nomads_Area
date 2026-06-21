@@ -40,7 +40,6 @@ MIDDLEWARE = [
     "corsheaders.middleware.CorsMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "nomads_area_app.middleware.APILanguageMiddleware",
-    "nomads_area.middleware.URLLanguageMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -163,7 +162,7 @@ if CACHE_BACKEND == "django.core.cache.backends.redis.RedisCache":
         "socket_timeout": 2,
     }
 
-API_CACHE_TIMEOUT = int(os.getenv("API_CACHE_TIMEOUT", "60"))
+API_CACHE_TIMEOUT = int(os.getenv("API_CACHE_TIMEOUT", "10"))
 API_CACHE_KEY_PREFIX = os.getenv("API_CACHE_KEY_PREFIX", "public-api-v1")
 
 
