@@ -171,18 +171,6 @@ class TourListSerializer(LocalizedModelSerializer):
     def get_price(self, obj):
         return get_display_price(obj)
 
-    def get_faqs(self, obj):
-        faqs = obj.faqs.filter(is_active=True)
-        return FAQSerializer(faqs, many=True, context=self.context).data
-
-    def get_extra_services(self, obj):
-        services = obj.extra_services.filter(is_active=True)
-        return ExtraServiceSerializer(services, many=True, context=self.context).data
-
-    def get_attractions(self, obj):
-        attractions = obj.attractions.filter(is_active=True)
-        return AttractionInTourSerializer(attractions, many=True, context=self.context).data
-
     def get_tour_type_display(self, obj): return get_tour_type_display(obj.tour_type)
     def get_season_display(self, obj): return get_season_display(obj.season)
 
@@ -275,15 +263,21 @@ class TourDetailSerializer(LocalizedModelSerializer):
         return get_display_price(obj)
 
     def get_faqs(self, obj):
-        faqs = obj.faqs.filter(is_active=True)
+        faqs = getattr(obj, "active_faqs", None)
+        if faqs is None:
+            faqs = obj.faqs.filter(is_active=True)
         return FAQSerializer(faqs, many=True, context=self.context).data
 
     def get_extra_services(self, obj):
-        services = obj.extra_services.filter(is_active=True)
+        services = getattr(obj, "active_extra_services", None)
+        if services is None:
+            services = obj.extra_services.filter(is_active=True)
         return ExtraServiceSerializer(services, many=True, context=self.context).data
 
     def get_attractions(self, obj):
-        attractions = obj.attractions.filter(is_active=True)
+        attractions = getattr(obj, "active_attractions", None)
+        if attractions is None:
+            attractions = obj.attractions.filter(is_active=True)
         return AttractionInTourSerializer(attractions, many=True, context=self.context).data
 
     def get_upcoming_dates(self, obj):
@@ -303,7 +297,11 @@ class TourCategoryDetailSerializer(LocalizedModelSerializer):
         fields = ["id", "name", "image", "image_url", "description", "tours"]
 
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
-    def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
+    def get_tours(self, obj):
+        tours = getattr(obj, "active_tours", None)
+        if tours is None:
+            tours = obj.tours.filter(is_active=True)
+        return TourListSerializer(tours, many=True, context=self.context).data
 
 
 class CountryDetailSerializer(LocalizedModelSerializer):
@@ -320,7 +318,11 @@ class CountryDetailSerializer(LocalizedModelSerializer):
 
     def get_country_image_url(self, obj): return _file_url(obj, "country_image", self.context.get("request"))
     def get_symbol_image_url(self, obj): return _file_url(obj, "symbol_image", self.context.get("request"))
-    def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
+    def get_tours(self, obj):
+        tours = getattr(obj, "active_tours", None)
+        if tours is None:
+            tours = obj.tours.filter(is_active=True)
+        return TourListSerializer(tours, many=True, context=self.context).data
 
 
 class CityDetailSerializer(LocalizedModelSerializer):
@@ -330,7 +332,12 @@ class CityDetailSerializer(LocalizedModelSerializer):
     class Meta:
         model = City
         fields = ["id", "city_name", "tours"]
-    def get_tours(self, obj): return TourListSerializer(obj.tours.filter(is_active=True), many=True, context=self.context).data
+
+    def get_tours(self, obj):
+        tours = getattr(obj, "active_tours", None)
+        if tours is None:
+            tours = obj.tours.filter(is_active=True)
+        return TourListSerializer(tours, many=True, context=self.context).data
 
 
 class BookingCreateSerializer(LocalizedModelSerializer):
@@ -499,7 +506,7 @@ class AttractionDetailSerializer(LocalizedModelSerializer):
     country_id = serializers.IntegerField(source="city.country_id", read_only=True)
     country_name = serializers.SerializerMethodField()
     images = AttractionImageSerializer(many=True, read_only=True)
-    tours = TourListSerializer(many=True, read_only=True)
+    tours = serializers.SerializerMethodField()
 
     class Meta:
         model = Attraction
@@ -511,3 +518,8 @@ class AttractionDetailSerializer(LocalizedModelSerializer):
     def get_image_url(self, obj): return _file_url(obj, "image", self.context.get("request"))
     def get_city_name(self, obj): return localized_value(obj.city, "city_name", get_request_language(self.context))
     def get_country_name(self, obj): return localized_value(obj.city.country, "country_name", get_request_language(self.context))
+    def get_tours(self, obj):
+        tours = getattr(obj, "active_tours", None)
+        if tours is None:
+            tours = obj.tours.filter(is_active=True)
+        return TourListSerializer(tours, many=True, context=self.context).data

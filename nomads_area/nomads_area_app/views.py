@@ -11,8 +11,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from .filters import TourFilter
-from .models import (Attraction, City, Country, QuizProgress, QuizQuestion, SiteSettings,
-                     TeamMember, Tour, TourCategory, TourDate, TourPriceTier)
+from .models import (Attraction, City, Country, ExtraService, FAQ, QuizProgress,
+                     QuizQuestion, SiteSettings, TeamMember, Tour, TourCategory,
+                     TourDate, TourPriceTier)
 from .notifications import (send_booking_notification, send_contact_notification,
                             send_quiz_notification)
 from .serializers import (AttractionDetailSerializer, AttractionListSerializer, BookingCreateSerializer,
@@ -32,6 +33,24 @@ cache_public_api = method_decorator(
     ),
     name="dispatch",
 )
+
+
+def active_tour_list_queryset():
+    today = date.today()
+    dates = Prefetch(
+        "dates",
+        queryset=TourDate.objects.filter(start_date__gte=today).order_by("start_date"),
+        to_attr="prefetched_dates",
+    )
+    price_tiers = Prefetch(
+        "price_tiers",
+        queryset=TourPriceTier.objects.order_by("price_per_person"),
+    )
+    return (
+        Tour.objects.filter(is_active=True)
+        .select_related("country", "city")
+        .prefetch_related("images", "categories", price_tiers, dates)
+    )
 
 
 @cache_public_api
@@ -55,7 +74,10 @@ class CountryViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return Country.objects.prefetch_related("cities", "tours")
+        return Country.objects.prefetch_related(
+            "cities",
+            Prefetch("tours", queryset=active_tour_list_queryset(), to_attr="active_tours"),
+        )
 
     def get_serializer_class(self):
         return CountryDetailSerializer if self.action == "retrieve" else CountryListSerializer
@@ -66,7 +88,9 @@ class CityViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        return City.objects.select_related("country").prefetch_related("tours")
+        return City.objects.select_related("country").prefetch_related(
+            Prefetch("tours", queryset=active_tour_list_queryset(), to_attr="active_tours"),
+        )
 
     def get_serializer_class(self):
         return CityDetailSerializer if self.action == "retrieve" else CityListSerializer
@@ -79,7 +103,7 @@ class TourCategoryViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return (
             TourCategory.objects.filter(is_active=True)
-            .prefetch_related("tours")
+            .prefetch_related(Prefetch("tours", queryset=active_tour_list_queryset(), to_attr="active_tours"))
             .annotate(tours_count=Count("tours", filter=Q(tours__is_active=True)))
             .order_by("-tours_count", "order", "id")
         )
@@ -113,7 +137,29 @@ class TourViewSet(viewsets.ReadOnlyModelViewSet):
             to_attr="prefetched_dates",
         )
         if self.action == "retrieve":
-            return base.prefetch_related("itinerary_days", "faqs", "extra_services", "route_points", "attractions", dates_p)
+            active_faqs = Prefetch(
+                "faqs",
+                queryset=FAQ.objects.filter(is_active=True).order_by("order", "id"),
+                to_attr="active_faqs",
+            )
+            active_extra_services = Prefetch(
+                "extra_services",
+                queryset=ExtraService.objects.filter(is_active=True),
+                to_attr="active_extra_services",
+            )
+            active_attractions = Prefetch(
+                "attractions",
+                queryset=Attraction.objects.filter(is_active=True).select_related("city"),
+                to_attr="active_attractions",
+            )
+            return base.prefetch_related(
+                "itinerary_days",
+                "route_points",
+                active_faqs,
+                active_extra_services,
+                active_attractions,
+                dates_p,
+            )
         return base.prefetch_related(dates_p)
 
     def get_serializer_class(self):
@@ -190,14 +236,14 @@ class AttractionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [AllowAny]
 
     def get_queryset(self):
-        tour_queryset = Tour.objects.filter(is_active=True).prefetch_related(
-            "categories", "images", "price_tiers", "dates",
-        )
         queryset = (
             Attraction.objects
             .filter(is_active=True)
             .select_related("city", "city__country")
-            .prefetch_related("images", Prefetch("tours", queryset=tour_queryset))
+            .prefetch_related(
+                "images",
+                Prefetch("tours", queryset=active_tour_list_queryset(), to_attr="active_tours"),
+            )
             .distinct()
         )
 
