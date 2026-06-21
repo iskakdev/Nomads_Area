@@ -47,6 +47,22 @@ class NotificationSafetyTests(SimpleTestCase):
         self.assertIsNone(result)
 
 
+class HealthEndpointTests(APITestCase):
+    def test_healthz_returns_ok(self):
+        response = self.client.get("/healthz/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "ok")
+
+    def test_readyz_checks_dependencies(self):
+        response = self.client.get("/readyz/")
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["status"], "ok")
+        self.assertTrue(response.data["checks"]["database"])
+        self.assertTrue(response.data["checks"]["cache"])
+
+
 class BaseNoSpamTestCase(APITestCase):
     def setUp(self):
         super().setUp()

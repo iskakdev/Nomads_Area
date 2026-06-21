@@ -1,11 +1,12 @@
 from datetime import date
-from django.db import transaction
+from django.core.cache import cache
+from django.db import connection, transaction
 from django.conf import settings
 from django.db.models import Count, Prefetch, Q
 from django.utils.decorators import method_decorator
 from django.views.decorators.cache import cache_page
 from django_filters.rest_framework import DjangoFilterBackend
-from rest_framework import generics, status, viewsets
+from rest_framework import generics, status, views, viewsets
 from rest_framework.filters import OrderingFilter, SearchFilter
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -51,6 +52,48 @@ def active_tour_list_queryset():
         .select_related("country", "city")
         .prefetch_related("images", "categories", price_tiers, dates)
     )
+
+
+class HealthCheckView(views.APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = []
+
+    def get(self, request):
+        return Response({"status": "ok"})
+
+
+class ReadinessCheckView(views.APIView):
+    permission_classes = [AllowAny]
+    authentication_classes = []
+    throttle_classes = []
+
+    def get(self, request):
+        checks = {
+            "database": False,
+            "cache": False,
+        }
+
+        try:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT 1")
+                cursor.fetchone()
+            checks["database"] = True
+        except Exception:
+            checks["database"] = False
+
+        try:
+            cache_key = "readyz"
+            cache.set(cache_key, "ok", 10)
+            checks["cache"] = cache.get(cache_key) == "ok"
+        except Exception:
+            checks["cache"] = False
+
+        is_ready = all(checks.values())
+        return Response(
+            {"status": "ok" if is_ready else "degraded", "checks": checks},
+            status=status.HTTP_200_OK if is_ready else status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
 
 
 @cache_public_api
