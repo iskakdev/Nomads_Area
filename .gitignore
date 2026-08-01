@@ -34,3 +34,5 @@ Thumbs.db
 celerybeat-schedule
 celerybeat.pid
 loadtest/results/
+.codex
+.agents

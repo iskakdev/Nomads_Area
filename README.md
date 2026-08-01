@@ -1,6 +1,6 @@
-# Nomads Area - бэкенд API
+# Nomads Area — Backend API
 
-> REST API для туристической платформы по Центральной Азии. Django + DRF + PostgreSQL.
+> REST API для туристической платформы Nomads Area. Проект построен на Django, Django REST Framework, PostgreSQL, Celery и Redis.
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?logo=python)](https://python.org)
 [![Django](https://img.shields.io/badge/Django-5.2-green?logo=django)](https://djangoproject.com)
@@ -10,74 +10,139 @@
 
 ---
 
+## Содержание
+
+1. [О проекте](#о-проекте)
+2. [Стек](#стек)
+3. [Production](#production)
+4. [Быстрый старт локально](#быстрый-старт-локально)
+5. [Celery и Redis](#celery-и-redis)
+6. [API-эндпоинты](#api-эндпоинты)
+7. [Фильтрация туров](#фильтрация-туров)
+8. [Логика бронирования](#логика-бронирования)
+9. [Отзывы](#отзывы)
+10. [Актуальная структура backend](#актуальная-структура-backend)
+11. [Переменные окружения](#переменные-окружения)
+12. [Тесты и проверки](#тесты-и-проверки)
+13. [Деплой backend](#деплой-backend)
+14. [Деплой frontend](#деплой-frontend)
+15. [Резервные копии](#резервные-копии)
+16. [S3/CDN для медиа](#s3cdn-для-медиа)
+17. [Sentry](#sentry)
+18. [Smoke-проверки](#smoke-проверки)
+19. [Нагрузочное тестирование](#нагрузочное-тестирование)
+20. [Передача проекта разработчику](#передача-проекта-разработчику)
+
+---
+
 ## О проекте
 
-Nomads Area - платформа для бронирования туров по Кыргызстану и Центральной Азии.
+**Nomads Area** — платформа для просмотра и бронирования туров по Кыргызстану и Центральной Азии.
 
-Система работает без клиентской авторизации: пользователь просматривает туры, бронирует тур или оставляет заявку. Менеджер обрабатывает всё через Django Admin и получает уведомления в Telegram.
+Пользовательская часть работает без клиентской авторизации: пользователь открывает каталог, выбирает тур, отправляет бронь, контактную заявку или проходит квиз. Менеджер обрабатывает заявки через Django Admin и получает уведомления в Telegram/Email.
 
-**Что умеет система:**
-- Каталог туров с фильтрацией по 10+ параметрам
-- Бронирование с расчётом цены на сервере
-- Атомарная дедупликация броней через hash + select_for_update (без race condition)
-- Атомарное резервирование мест при подтверждении брони
-- Контактные заявки и квиз с лидогенерацией
-- Уведомления в Telegram и Email через Celery (transaction.on_commit)
-- Мультиязычность RU/EN/ES/FR/DE через URL-префикс
-- Отзывы через внешние виджеты Elfsight
-- Онлайн-платежи и трансферы удалены; оплата обрабатывается физически/вручную
+### Основные возможности
+
+- Каталог туров с фильтрацией по типу тура, стране, городу, категории, цене, сезону, сложности, датам и другим параметрам.
+- Бронирование с серверным расчётом цены.
+- Дедупликация повторных заявок через fingerprint.
+- Атомарное резервирование мест при подтверждении брони.
+- Контактные заявки и квиз для лидогенерации.
+- Уведомления в Telegram и Email через Celery.
+- Мультиязычность RU/EN/ES/FR/DE через URL-префикс.
+- Отзывы через внешние виджеты Elfsight.
+- Онлайн-платежи и трансферы удалены; оплата обрабатывается менеджером вручную.
 
 ---
 
 ## Стек
 
 | Компонент | Технология |
-|-----------|------------|
-| Бэкенд | Python 3.12, Django 5.2 |
+|---|---|
+| Backend | Python 3.12, Django 5.2 |
 | API | Django REST Framework |
-| База данных | PostgreSQL 16 |
+| База данных | PostgreSQL |
 | Очереди | Celery + Redis |
-| Авто-документация | drf-spectacular (Swagger / ReDoc) |
+| API-документация | drf-spectacular, Swagger, ReDoc |
 | Переводы | django-modeltranslation |
 | Уведомления | Telegram Bot API, SMTP |
-| Деплой | Gunicorn + Nginx, Whitenoise |
+| Production | Gunicorn + Nginx |
+| Static files | Whitenoise |
+| Admin UI | Django Admin / Jazzmin |
 
 ---
 
-## Продакшен
+## Production
 
-| | |
+| Ресурс | Значение |
 |---|---|
-| Домен | https://nomadsarea.com |
-| Сервер | Contabo VPS, Ubuntu 24.04 |
-| Swagger | https://nomadsarea.com/api/docs/ |
-| Админка | https://nomadsarea.com/admin/ |
+| Публичный сайт | `https://www.nomadsarea.com` |
+| Backend API | `https://www.nomadsarea.com/api/...` |
+| Swagger | `https://www.nomadsarea.com/api/docs/` |
+| ReDoc | `https://www.nomadsarea.com/api/redoc/` |
+| Admin | `https://www.nomadsarea.com/admin/` |
+| VPS | Contabo VPS, Ubuntu |
+| Backend path | `/root/Nomads_Area` |
+| Django path | `/root/Nomads_Area/nomads_area` |
+| Backend venv | `/root/Nomads_Area/venv` |
+| Backend service | `nomadsarea` |
+| Celery service | `nomadsarea-celery` |
+| Frontend path | `/root/nomads-area` |
+| Frontend process | `nomads-frontend` через PM2 |
 
 ---
 
-## Быстрый старт
+## Быстрый старт локально
 
-### 1. Клонировать и установить зависимости
+### 1. Клонировать проект
 
 ```bash
 git clone https://github.com/iskakdev/Nomads_Area.git
-cd Nomads_Area/nomads_area
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
+cd Nomads_Area
+```
+
+### 2. Создать виртуальное окружение
+
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+### 3. Установить зависимости
+
+Можно из корня:
+
+```bash
 pip install -r requirements.txt
 ```
 
-### 2. Настроить окружение
+Или из Django-директории:
 
 ```bash
+cd nomads_area
+pip install -r requirements.txt
+```
+
+Основной файл зависимостей backend находится здесь:
+
+```text
+nomads_area/requirements.txt
+```
+
+Корневой `requirements.txt` оставлен для удобного деплоя и ссылается на основной файл.
+
+### 4. Настроить окружение
+
+```bash
+cd nomads_area
 cp .env.example .env
 ```
 
-Минимум для запуска:
+Минимальный `.env` для локального запуска:
 
-```env
+```dotenv
 DEBUG=True
-SECRET_KEY=django-insecure-your-secret-key-here
+SECRET_KEY=django-insecure-local-secret-key
 ALLOWED_HOSTS=127.0.0.1,localhost
 
 DB_NAME=nomads_area
@@ -85,85 +150,115 @@ DB_USER=postgres
 DB_PASSWORD=postgres
 DB_HOST=localhost
 DB_PORT=5432
+
+CACHE_URL=redis://127.0.0.1:6379/1
+CELERY_BROKER_URL=redis://127.0.0.1:6379/0
+CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/0
 ```
 
-### 3. Применить миграции и создать суперпользователя
+### 5. Поднять PostgreSQL
+
+На Arch Linux:
+
+```bash
+sudo systemctl start postgresql
+sudo systemctl status postgresql --no-pager
+```
+
+### 6. Применить миграции
 
 ```bash
 python manage.py migrate
 python manage.py createsuperuser
 ```
 
-### 4. Запустить
+### 7. Запустить Django
 
 ```bash
 python manage.py runserver
 ```
 
-Сервер: `http://127.0.0.1:8000`
+Локальные адреса:
 
-Swagger UI: `http://127.0.0.1:8000/api/docs/`
-
-Django Admin: `http://127.0.0.1:8000/admin/`
+```text
+http://127.0.0.1:8000
+http://127.0.0.1:8000/admin/
+http://127.0.0.1:8000/api/docs/
+```
 
 ---
 
-## Celery (асинхронные уведомления)
+## Celery и Redis
+
+### Запуск Redis
 
 ```bash
-# Запустить Redis
 redis-server
+```
 
-# Запустить worker
+Или через systemd:
+
+```bash
+sudo systemctl start redis
+```
+
+### Запуск Celery worker
+
+```bash
+cd /home/iskhak/PycharmProjects/Nomads_Area/nomads_area
+source ../.venv/bin/activate
 celery -A nomads_area worker -l info
+```
 
-# Windows
+На Windows:
+
+```bash
 celery -A nomads_area worker -l info --pool=solo
 ```
 
----
-
-## Деплой на сервер
-
-```bash
-# Зайти на сервер
-ssh root@your-server-ip
-
-# Подтянуть изменения
-cd /root/Nomads_Area/nomads_area
-git pull
-
-# Перезапустить сервис
-systemctl restart nomadsarea
-systemctl restart nomadsarea-celery
-```
+> `tasks.py` намеренно оставлен отдельным файлом, потому что Celery autodiscover обычно ожидает задачи в модуле `nomads_area_app.tasks`.
 
 ---
 
 ## API-эндпоинты
 
-Все публичные эндпоинты имеют языковой префикс: `/api/ru/`, `/api/en/`, `/api/es/`, `/api/fr/`, `/api/de/`.
+Все публичные языковые эндпоинты имеют префикс:
+
+```text
+/api/ru/
+/api/en/
+/api/es/
+/api/fr/
+/api/de/
+```
+
+### Health
+
+```text
+GET /api/healthz/
+GET /api/readyz/
+```
 
 ### Контент
 
-```
-GET  /api/ru/site-settings/
-GET  /api/ru/team/
-GET  /api/ru/countries/
-GET  /api/ru/countries/{id}/
-GET  /api/ru/cities/
-GET  /api/ru/cities/{id}/
-GET  /api/ru/categories/
-GET  /api/ru/categories/{id}/
-GET  /api/ru/tours/
-GET  /api/ru/tours/{id}/
-GET  /api/ru/attractions/
-GET  /api/ru/attractions/{id}/
+```text
+GET /api/ru/site-settings/
+GET /api/ru/team/
+GET /api/ru/countries/
+GET /api/ru/countries/{id}/
+GET /api/ru/cities/
+GET /api/ru/cities/{id}/
+GET /api/ru/categories/
+GET /api/ru/categories/{id}/
+GET /api/ru/tours/
+GET /api/ru/tours/{id}/
+GET /api/ru/attractions/
+GET /api/ru/attractions/{id}/
 ```
 
 ### Формы
 
-```
+```text
 POST /api/ru/bookings/
 POST /api/ru/contact/
 POST /api/ru/quiz/submit/
@@ -174,17 +269,19 @@ PUT  /api/ru/quiz/progress/save/{session_key}/
 
 ### Документация
 
-```
-GET  /api/docs/
-GET  /api/redoc/
-GET  /api/schema/
+```text
+GET /api/docs/
+GET /api/redoc/
+GET /api/schema/
 ```
 
 ---
 
 ## Фильтрация туров
 
-```
+Примеры:
+
+```text
 GET /api/ru/tours/?tour_type=group&country=1&price_min=200&price_max=800
 GET /api/ru/tours/?season=warm&difficulty=2&duration_min=3
 GET /api/ru/tours/?exclude_sold_out=true&date_from=2026-06-01
@@ -192,111 +289,291 @@ GET /api/ru/tours/?search=озеро&ordering=-created_at
 ```
 
 | Параметр | Значения | Описание |
-|----------|----------|----------|
+|---|---|---|
 | `tour_type` | `group`, `private` | Тип тура |
 | `country` | ID | Страна |
 | `city` | ID | Город |
 | `category` | ID | Категория |
-| `difficulty` | `1`, `2`, `3` | Легкий / Средний / Сложный |
+| `difficulty` | `1`, `2`, `3` | Лёгкий / средний / сложный |
 | `season` | `all_year`, `warm`, `winter` | Сезон |
-| `price_min` / `price_max` | число | Диапазон цен |
-| `duration_min` / `duration_max` | число | Длительность (дней) |
+| `price_min`, `price_max` | число | Диапазон цен |
+| `duration_min`, `duration_max` | число | Длительность в днях |
 | `date_from` | `YYYY-MM-DD` | Дата заезда не раньше |
 | `exclude_sold_out` | `true` | Скрыть распроданные |
-| `search` | строка | Полнотекстовый поиск |
+| `search` | строка | Поиск по туру |
 | `ordering` | `price`, `duration_days`, `created_at` | Сортировка |
 
 ---
 
 ## Логика бронирования
 
+```text
+Пользователь
+  ↓
+POST /api/{locale}/bookings/
+  ↓
+Валидация данных
+  ↓
+Расчёт цены на backend
+  ↓
+transaction.atomic()
+  ↓
+Создание Booking со статусом pending
+  ↓
+transaction.on_commit()
+  ↓
+Celery → Telegram + Email
+  ↓
+Менеджер подтверждает бронь в Django Admin
+  ↓
+transaction.atomic() + select_for_update()
+  ↓
+Статус confirmed + списание available_spots
 ```
-Пользователь -> POST /bookings/
-       |
-  Валидация (даты, места, тип тура)
-       |
-  Расчёт цены на сервере
-  price_per_person x people = total_price
-       |
-  [transaction.atomic]
-  Booking(status=pending)
-  [/transaction.atomic]
-       |
-  Менеджер подтверждает вручную через Admin
-       |
-  [transaction.atomic + select_for_update]
-  Booking(status=confirmed)
-  + списание мест TourDate.available_spots
-  [/transaction.atomic]
-       |
-  transaction.on_commit -> Celery -> Telegram + Email
+
+Важные правила:
+
+- Цена считается на backend, а не доверяется frontend.
+- Для групповых туров проверяются свободные места.
+- Для приватных туров пользователь может указать желаемые даты.
+- Дополнительные услуги должны относиться к выбранному туру.
+- Повторные заявки дедуплицируются через fingerprint.
+- Места списываются только при подтверждении брони менеджером.
+
+---
+
+## Отзывы
+
+Собственная база отзывов в проекте отсутствует.
+
+Отзывы отображаются через внешние виджеты:
+
+| Виджет | Источник | Настройка |
+|---|---|---|
+| Google Reviews | Elfsight | App ID в настройках сайта |
+| TripAdvisor | Elfsight или внешний сервис | App ID / настройки виджета |
+
+Настройки находятся в Django Admin:
+
+```text
+Настройки сайта → Виджеты отзывов
 ```
 
 ---
 
-## Логика отзывов
+## Актуальная структура backend
 
-Собственная БД отзывов в проекте отсутствует. Отзывы отображаются через внешние виджеты:
+После рефакторинга крупные backend-модули разделены по доменам.
 
-- **Google Reviews** - Elfsight Google Reviews Widget (настраивается через App ID)
-- **TripAdvisor** - Elfsight/внешний виджет, если он подключён на фронтенде
-
-Настройки хранятся в Django Admin: Настройки сайта -> раздел "Виджеты отзывов".
-
----
-
-## Структура проекта
-
+```text
+nomads_area_app/
+├── admin/
+│   ├── __init__.py
+│   ├── common.py
+│   ├── inlines.py
+│   ├── content.py
+│   ├── tours.py
+│   ├── bookings.py
+│   └── quiz.py
+├── notifications/
+│   ├── __init__.py
+│   ├── common.py
+│   ├── bookings.py
+│   ├── contacts.py
+│   └── quiz.py
+├── serializers/
+│   ├── __init__.py
+│   ├── common.py
+│   ├── content.py
+│   ├── tours.py
+│   ├── bookings.py
+│   └── quiz.py
+├── services/
+│   ├── __init__.py
+│   ├── common.py
+│   ├── bookings.py
+│   ├── contacts.py
+│   └── quiz.py
+├── tests/
+│   ├── __init__.py
+│   ├── base.py
+│   ├── test_api_structure.py
+│   ├── test_health.py
+│   ├── test_integrity.py
+│   └── test_project.py
+├── views/
+│   ├── __init__.py
+│   ├── common.py
+│   ├── health.py
+│   ├── content.py
+│   ├── tours.py
+│   ├── bookings.py
+│   └── quiz.py
+├── models.py
+├── urls.py
+├── filters.py
+├── tasks.py
+├── translation.py
+├── signals.py
+├── middleware.py
+├── throttles.py
+├── exceptions.py
+└── apps.py
 ```
-Nomads_Area/
-+-- nomads_area/
-|   +-- settings.py
-|   +-- urls.py
-|   +-- celery.py
-|   +-- wsgi.py
-+-- nomads_area_app/
-    +-- models.py
-    +-- serializers.py
-    +-- views.py
-    +-- urls.py
-    +-- filters.py
-    +-- services.py
-    +-- notifications.py
-    +-- tasks.py
-    +-- translation.py
-    +-- admin.py
-    +-- ограничение частоты запросовs.py
-    +-- exceptions.py
-```
+
+### Назначение пакетов
+
+#### `admin/`
+
+Django Admin, разделённый по доменам:
+
+- `common.py` — общие настройки админки и mixin для переводов.
+- `inlines.py` — inline-классы Django Admin.
+- `content.py` — настройки сайта, страны, города, категории, FAQ, доп. услуги.
+- `tours.py` — туры, даты туров, достопримечательности.
+- `bookings.py` — бронирования и контактные заявки.
+- `quiz.py` — вопросы квиза и лиды.
+
+#### `serializers/`
+
+DRF serializers:
+
+- `common.py` — общие helper-функции, локализация, URL файлов.
+- `tours.py` — туры, страны, города, категории, достопримечательности.
+- `bookings.py` — бронирования и контактные заявки.
+- `quiz.py` — квиз.
+- `content.py` — настройки сайта и команда.
+
+#### `views/`
+
+DRF views и viewsets:
+
+- `common.py` — общий cache decorator.
+- `health.py` — healthz и readyz.
+- `content.py` — настройки сайта и команда.
+- `tours.py` — туры, страны, города, категории, достопримечательности.
+- `bookings.py` — создание броней и контактных заявок.
+- `quiz.py` — квиз и лиды.
+
+#### `services/`
+
+Бизнес-логика:
+
+- `common.py` — money helpers, fingerprint, dedup helpers.
+- `bookings.py` — создание брони и расчёт цены.
+- `quiz.py` — прогресс квиза и создание quiz lead.
+- `contacts.py` — создание контактной заявки.
+
+#### `notifications/`
+
+Сборка и отправка уведомлений через Celery tasks:
+
+- `common.py` — escaping и безопасная постановка задачи в очередь.
+- `bookings.py` — уведомления о бронях.
+- `quiz.py` — уведомления о лидах из квиза.
+- `contacts.py` — уведомления о контактных заявках.
+
+### Файлы, которые намеренно оставлены одиночными
+
+| Файл | Почему не дробим |
+|---|---|
+| `models.py` | DB-схема, миграции и modeltranslation завязаны на модели. Разделять рискованно без отдельного плана. |
+| `tasks.py` | Celery autodiscover ожидает задачи в `nomads_area_app.tasks`. |
+| `urls.py` | Маршруты компактные и должны оставаться прозрачными. |
+| `translation.py` | Регистрация modeltranslation. |
+| `signals.py` | Django signals. |
+| `filters.py` | Фильтры DRF. |
+| `middleware.py` | Middleware. |
 
 ---
 
 ## Переменные окружения
 
+Production `.env` находится здесь:
+
+```text
+/root/Nomads_Area/nomads_area/.env
+```
+
+Основные переменные:
+
 | Переменная | Описание |
-|------------|----------|
+|---|---|
 | `SECRET_KEY` | Django secret key |
-| `DEBUG` | `True` / `False` |
-| `ALLOWED_HOSTS` | Через запятую |
-| `DB_*` | Параметры PostgreSQL |
-| `CELERY_BROKER_URL` | Redis URL |
-| `TELEGRAM_BOT_TOKEN` | Токен бота |
+| `DEBUG` | `True` или `False`; на production только `False` |
+| `ALLOWED_HOSTS` | Разрешённые хосты через запятую |
+| `DB_NAME` | Имя PostgreSQL базы |
+| `DB_USER` | PostgreSQL пользователь |
+| `DB_PASSWORD` | PostgreSQL пароль |
+| `DB_HOST` | Обычно `localhost` |
+| `DB_PORT` | Обычно `5432` |
+| `CACHE_URL` | Redis cache URL |
+| `CELERY_BROKER_URL` | Redis URL для Celery broker |
+| `CELERY_RESULT_BACKEND` | Redis URL для Celery result backend |
+| `TELEGRAM_BOT_TOKEN` | Токен Telegram-бота |
 | `TELEGRAM_CHAT_ID` | ID чата для уведомлений |
-| `EMAIL_HOST_USER` | Gmail аккаунт |
-| `EMAIL_HOST_PASSWORD` | пароль приложения Gmail |
-| `API_DOCS_ENABLED` | Включить Swagger (`True`/`False`) |
-| `CORS_ALLOWED_ORIGINS` | Разрешённые origins фронтенда |
+| `EMAIL_HOST_USER` | SMTP/Gmail пользователь |
+| `EMAIL_HOST_PASSWORD` | Пароль приложения SMTP/Gmail |
+| `DEFAULT_FROM_EMAIL` | Email отправителя |
+| `API_DOCS_ENABLED` | Включить Swagger/ReDoc |
+| `CORS_ALLOWED_ORIGINS` | Разрешённые frontend origins |
 | `CSRF_TRUSTED_ORIGINS` | Доверенные origins для CSRF |
+
+> Никогда не храните реальные секреты, токены и пароли в README, GitHub или чатах.
 
 ---
 
-## Тесты
+## Тесты и проверки
+
+### Полный локальный тест
 
 ```bash
-python manage.py test nomads_area_app
+cd /home/iskhak/PycharmProjects/Nomads_Area
+source .venv/bin/activate
+cd nomads_area
+python manage.py check
+python manage.py test
 ```
 
-Генерация OpenAPI схемы:
+Ожидаемо:
+
+```text
+Found 39 test(s).
+OK
+```
+
+### Если PostgreSQL выключен локально
+
+Ошибка будет похожа на:
+
+```text
+connection to server at "localhost", port 5432 failed: Connection refused
+```
+
+Решение на Arch Linux:
+
+```bash
+sudo systemctl start postgresql
+sudo systemctl status postgresql --no-pager
+```
+
+После этого повторить:
+
+```bash
+python manage.py check
+python manage.py test
+```
+
+### Проверки без создания тестовой базы
+
+```bash
+python manage.py check
+python manage.py makemigrations --check --dry-run
+python -m compileall nomads_area nomads_area_app
+bash -n ../scripts/*.sh
+```
+
+### Генерация OpenAPI схемы
 
 ```bash
 python manage.py spectacular --file schema.yaml --validate
@@ -304,39 +581,47 @@ python manage.py spectacular --file schema.yaml --validate
 
 ---
 
-## Документация
+## Деплой backend
 
-Дополнительные документы:
-
-- `MANAGER_GUIDE.md` - руководство менеджера.
-- `docs/Architecture.docx` - архитектура бэкенда в Word-формате.
-
-
----
-
-# Чеклист эксплуатации
-Документ для безопасной эксплуатации production. Не храните здесь пароли, токены, SMTP-ключи и доступы.
-
-## 1. Деплой бэкенда
+Production-команды:
 
 ```bash
+ssh root@your-server-ip
+
 cd /root/Nomads_Area
 git pull --ff-only origin main
 
 source venv/bin/activate
-cd nomads_area
+pip install -r requirements.txt
 
+cd nomads_area
 python manage.py migrate
 python manage.py check
 
 sudo systemctl restart nomadsarea
 sudo systemctl restart nomadsarea-celery
 sudo systemctl is-active nomadsarea nomadsarea-celery
+
+cd /root/Nomads_Area
+bash scripts/smoke_check.sh
 ```
 
-## 2. Деплой фронтенда
+Проверка health:
 
 ```bash
+curl -fsS https://www.nomadsarea.com/api/healthz/
+curl -fsS https://www.nomadsarea.com/api/readyz/
+```
+
+Если сразу после `restart` появляется `502 Bad Gateway`, подождите 1–3 секунды: Gunicorn workers могут ещё подниматься.
+
+---
+
+## Деплой frontend
+
+```bash
+ssh root@your-server-ip
+
 cd /root/nomads-area
 git pull --ff-only origin main
 
@@ -347,56 +632,38 @@ pm2 restart nomads-frontend --update-env
 pm2 save
 ```
 
-## 3. Резервная копия базы данных
+---
 
-Создавайте backup перед миграциями и крупными изменениями данных.
+## Резервные копии
 
-Ручной backup:
+### Backup базы данных
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/backup_database.sh
 ```
 
-По умолчанию backup хранится в `/var/backups/nomads-area`, старые резервная копия БД старше 14 дней удаляются.
-
-Проверка восстановления backup:
-
-```bash
-cd /root/Nomads_Area
-bash scripts/restore_database_check.sh /var/backups/nomads-area/db-....dump
-```
-
-Скрипт создаёт временную PostgreSQL базу, восстанавливает dump, проверяет наличие таблиц и удаляет временную базу.
-
-## 4. Резервная копия медиафайлов
-
-Файлы из `MEDIA_ROOT` нужно бэкапить отдельно от PostgreSQL.
-
-Ручной backup:
+### Backup media
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/backup_media.sh
 ```
 
-По умолчанию media backup хранится в `/var/backups/nomads-area`, старые media backup старше 14 дней удаляются.
-
-## 5. Автоматические резервные копии
-
-Установить systemd timers:
+### Автоматические backup timers
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/install_backup_timers.sh
 ```
 
-Расписание:
+Расписание по умолчанию:
 
-- резервная копия БД: каждый день в 03:15
-- резервная копия медиа: каждый день в 03:35
+- база данных — каждый день в `03:15`;
+- media — каждый день в `03:35`;
+- срок хранения — 14 дней.
 
-Проверить timers:
+Проверка timers:
 
 ```bash
 systemctl list-timers 'nomads-backup-*' --no-pager
@@ -404,11 +671,22 @@ journalctl -u nomads-backup-database.service -n 100 --no-pager
 journalctl -u nomads-backup-media.service -n 100 --no-pager
 ```
 
-## 6. Хранение медиафайлов и CDN
+### Проверка восстановления базы
 
-Сейчас media может храниться на сервере. Для роста проекта лучше вынести media в S3-совместимое хранилище и CDN, чтобы сервер не был единственной точкой хранения фотографий и видео.
+```bash
+cd /root/Nomads_Area
+bash scripts/restore_database_check.sh /var/backups/nomads-area/db-....dump
+```
 
-Бэкенд уже поддерживает режим включения через переменные окружения. В `.env`:
+Скрипт создаёт временную PostgreSQL-базу, восстанавливает dump, проверяет наличие таблиц и удаляет временную базу.
+
+---
+
+## S3/CDN для медиа
+
+S3-совместимое хранилище опционально. Не включайте его без плана миграции уже загруженных файлов.
+
+Пример `.env`:
 
 ```dotenv
 USE_S3_STORAGE=True
@@ -421,9 +699,7 @@ AWS_S3_CUSTOM_DOMAIN=cdn.example.com
 AWS_LOCATION=media
 ```
 
-Если `AWS_S3_CUSTOM_DOMAIN` задан, API будет отдавать media URL через CDN-домен.
-
-После изменения env:
+После изменения `.env`:
 
 ```bash
 cd /root/Nomads_Area/nomads_area
@@ -432,9 +708,15 @@ python manage.py check
 sudo systemctl restart nomadsarea
 ```
 
-## 7. Мониторинг ошибок
+Если задан `AWS_S3_CUSTOM_DOMAIN`, API будет отдавать media URL через CDN-домен.
 
-Для Sentry достаточно добавить DSN в `.env`:
+---
+
+## Sentry
+
+Sentry опционален и не работает, пока не задан `SENTRY_DSN`.
+
+Пример `.env`:
 
 ```dotenv
 SENTRY_DSN=https://...
@@ -442,16 +724,27 @@ SENTRY_ENVIRONMENT=production
 SENTRY_TRACES_SAMPLE_RATE=0.0
 ```
 
-После изменения env:
+После изменения:
 
 ```bash
 sudo systemctl restart nomadsarea
 sudo systemctl restart nomadsarea-celery
 ```
 
-`SENTRY_TRACES_SAMPLE_RATE=0.0` означает: ошибки отправляются, трассировка производительности выключена. Если потом понадобится мониторинг производительности, можно поднять до `0.05` или `0.1`.
+`SENTRY_TRACES_SAMPLE_RATE=0.0` означает: ошибки отправляются, трассировка производительности выключена.
 
-## 8. Smoke-проверки после деплоя
+---
+
+## Smoke-проверки
+
+### Health
+
+```bash
+curl -fsS https://www.nomadsarea.com/api/healthz/
+curl -fsS https://www.nomadsarea.com/api/readyz/
+```
+
+### Языковые версии тура
 
 ```bash
 for locale in ru en es fr de; do
@@ -461,159 +754,34 @@ for locale in ru en es fr de; do
 done
 ```
 
+### Фильтр достопримечательностей
+
 ```bash
 curl -fsS "https://www.nomadsarea.com/api/ru/attractions/?country=Казахстан" >/dev/null \
   && echo "Attractions filter OK"
 ```
+
+### Удалённые payments
 
 ```bash
 curl -sS -o /dev/null -w '%{http_code}\n' \
   https://www.nomadsarea.com/api/en/payments/finikpay/webhook/
 ```
 
-Ожидаемо: `404`, потому что онлайн-платежи удалены.
+Ожидаемо:
 
-Или одной командой:
+```text
+404
+```
+
+### Общий smoke script
 
 ```bash
 cd /root/Nomads_Area
 bash scripts/smoke_check.sh
 ```
 
-## 9. Правила нагрузочного тестирования
-
-Не запускать массовый POST на production. Он создаёт реальные брони/лиды/уведомления.
-
-Для честного GET-теста:
-
-- запускать нагрузку с отдельной VPS;
-- заранее проверить, что ограничение частоты запросов не превращает тест в поток `429`;
-- мониторить `journalctl`, RAM, CPU, подключения PostgreSQL;
-- прекращать тест при `5xx`, таймаут worker-процесса, росте swap или p99 выше 2-3 секунд.
-
-Пример wrk:
-
-```bash
-/usr/bin/wrk -t2 -c10 -d30s --latency \
-  https://www.nomadsarea.com/api/en/tours/54/
-```
-
-## 10. Безопасность данных из админки
-
-- Если тур выключен через `Активен`, backend не должен принимать новую бронь на этот тур.
-- Достопримечательность должна быть одной записью, связанной с несколькими турами, а не дублями.
-- Если меняются вопросы квиза, проверяйте ветвление: выбранная ветка не должна показывать вопросы из другой ветки.
-
-
----
-
-# Передача проекта разработчику
-
-Этот документ нужен следующему разработчику, чтобы быстро понять текущее состояние проекта, правила работы и критичные места. Не храните здесь секреты, токены, пароли и реальные ключи.
-
-## Репозитории и production-пути
-
-Бэкенд:
-
-- GitHub: `iskakdev/Nomads_Area`
-- Путь на production: `/root/Nomads_Area`
-- Путь Django-проекта: `/root/Nomads_Area/nomads_area`
-- Виртуальное окружение: `/root/Nomads_Area/venv`
-- Основной сервис: `nomadsarea`
-- Celery-сервис: `nomadsarea-celery`
-
-Фронтенд:
-
-- GitHub: `kubanych-js/nomads-area`
-- Путь на production: `/root/nomads-area`
-- Менеджер процессов: PM2
-- PM2-процесс: `nomads-frontend`
-
-Production-домен:
-
-- Публичный сайт: `https://www.nomadsarea.com`
-- API бэкенда доступен через `/api/...` и проксируется Nginx.
-
-## Текущий стек бэкенда
-
-- Django 5.2.x
-- Django REST Framework
-- PostgreSQL
-- Redis-кэш
-- Celery
-- django-modeltranslation для полей моделей RU/EN/ES/FR/DE
-- админка на django-jazzmin
-- Sentry опционален и выключен, пока не задан `SENTRY_DSN`
-- S3-совместимое хранилище медиа опционально и выключено, пока не задано `USE_S3_STORAGE=True`
-
-## Файлы зависимостей
-
-Единственный основной список зависимостей бэкенда:
-
-- `nomads_area/requirements.txt`
-
-Файл в корне репозитория оставлен только для удобного деплоя:
-
-- `requirements.txt` содержит `-r nomads_area/requirements.txt`
-
-Поэтому работают обе команды:
-
-```bash
-cd /root/Nomads_Area
-pip install -r requirements.txt
-```
-
-```bash
-cd /root/Nomads_Area/nomads_area
-pip install -r requirements.txt
-```
-
-При добавлении зависимостей бэкенда обновляйте только `nomads_area/requirements.txt`.
-
-## Обязательное production-окружение
-
-Production-файл окружения на сервере:
-
-```bash
-/root/Nomads_Area/nomads_area/.env
-```
-
-Важные переменные:
-
-```dotenv
-DEBUG=False
-SECRET_KEY=...
-ALLOWED_HOSTS=...
-DB_NAME=...
-DB_USER=...
-DB_PASSWORD=...
-DB_HOST=localhost
-DB_PORT=5432
-CACHE_URL=redis://127.0.0.1:6379/1
-CELERY_BROKER_URL=redis://localhost:6379/0
-CELERY_RESULT_BACKEND=redis://localhost:6379/0
-CORS_ALLOWED_ORIGINS=https://www.nomadsarea.com,https://nomadsarea.com
-```
-
-`DEBUG` должен оставаться `False` на production. Если поставить `True`, Django может показать debug-страницы с внутренними настройками и stack trace.
-
-## Health- и smoke-проверки
-
-Публичные health-эндпоинты:
-
-```bash
-curl -fsS https://www.nomadsarea.com/api/healthz/
-curl -fsS https://www.nomadsarea.com/api/readyz/
-```
-
-Полная smoke-проверка:
-
-```bash
-cd /root/Nomads_Area
-bash scripts/smoke_check.sh
-```
-
-Ожидаемый вывод содержит:
+Ожидаемый результат:
 
 ```text
 ru tour detail OK
@@ -625,250 +793,28 @@ attractions country filter OK
 smoke checks OK
 ```
 
-## Деплой бэкенда
-
-```bash
-cd /root/Nomads_Area
-git pull --ff-only origin main
-
-source venv/bin/activate
-pip install -r requirements.txt
-
-cd nomads_area
-python manage.py migrate
-python manage.py check
-
-sudo systemctl restart nomadsarea
-sudo systemctl restart nomadsarea-celery
-sudo systemctl is-active nomadsarea nomadsarea-celery
-
-cd /root/Nomads_Area
-bash scripts/smoke_check.sh
-```
-
-## Деплой фронтенда
-
-```bash
-cd /root/nomads-area
-git pull --ff-only origin main
-
-rm -rf .next
-pnpm build
-
-pm2 restart nomads-frontend --update-env
-pm2 save
-```
-
-## Резервные копии и восстановление
-
-Ручная резервная копия базы данных:
-
-```bash
-cd /root/Nomads_Area
-bash scripts/backup_database.sh
-```
-
-Ручная резервная копия медиафайлов:
-
-```bash
-cd /root/Nomads_Area
-bash scripts/backup_media.sh
-```
-
-Установка автоматических systemd timers:
-
-```bash
-cd /root/Nomads_Area
-bash scripts/install_backup_timers.sh
-```
-
-Расписание по умолчанию:
-
-- резервная копия базы данных каждый день в 03:15
-- резервная копия медиафайлов каждый день в 03:35
-- срок хранения резервных копий: 14 дней
-
-Проверка timers:
-
-```bash
-systemctl list-timers 'nomads-backup-*' --no-pager
-journalctl -u nomads-backup-database.service -n 100 --no-pager
-journalctl -u nomads-backup-media.service -n 100 --no-pager
-```
-
-Проверка восстановления базы данных:
-
-```bash
-cd /root/Nomads_Area
-bash scripts/restore_database_check.sh /var/backups/nomads-area/db-....dump
-```
-
-Проверка восстановления создаёт временную PostgreSQL-базу, восстанавливает dump, проверяет наличие таблиц в схеме public и удаляет временную базу.
-
-## Опциональная настройка Sentry
-
-Sentry опционален и не работает, пока не задан `SENTRY_DSN`.
-
-Добавить в `.env`:
-
-```dotenv
-SENTRY_DSN=https://...
-SENTRY_ENVIRONMENT=production
-SENTRY_TRACES_SAMPLE_RATE=0.0
-```
-
-Затем:
-
-```bash
-sudo systemctl restart nomadsarea
-sudo systemctl restart nomadsarea-celery
-```
-
-Сначала используйте `SENTRY_TRACES_SAMPLE_RATE=0.0`: ошибки будут отправляться, а трассировка производительности будет выключен. Поднимайте до `0.05` или `0.1` только если нужны данные производительности.
-
-## Опциональная настройка S3/CDN для медиа
-
-S3-совместимое хранилище опционально и по умолчанию выключено.
-
-Добавляйте в `.env` только после подготовки bucket/CDN:
-
-```dotenv
-USE_S3_STORAGE=True
-AWS_ACCESS_KEY_ID=...
-AWS_SECRET_ACCESS_KEY=...
-AWS_STORAGE_BUCKET_NAME=...
-AWS_S3_REGION_NAME=...
-AWS_S3_ENDPOINT_URL=...
-AWS_S3_CUSTOM_DOMAIN=cdn.example.com
-AWS_LOCATION=media
-```
-
-Затем:
-
-```bash
-cd /root/Nomads_Area/nomads_area
-source /root/Nomads_Area/venv/bin/activate
-python manage.py check
-sudo systemctl restart nomadsarea
-```
-
-Не включайте S3 без плана миграции медиафайлов. Уже загруженные локальные файлы сами не переедут в S3.
-
-## Важная бизнес-логика
-
-### Активные туры
-
-Если тур неактивен, фронтенд должен перестать показывать его после обновления кэша/ревалидации, но бэкенд также обязан отклонять попытки бронирования. Проверка на бэкенде - финальный защитный слой.
-
-### Бронирования
-
-При создании брони проверяется:
-
-- тур существует;
-- тур активен;
-- выбранная дата относится к выбранному туру;
-- дополнительные услуги относятся к выбранному туру;
-- для группового тура есть свободные места;
-- дубли заявок обрабатываются через fingerprint.
-
-### Достопримечательности
-
-Достопримечательность должна быть одной записью, связанной со многими турами, а не дублем под каждый тур.
-
-Правильная схема:
-
-```text
-Достопримечательность
-  ├── приватный тур A
-  ├── групповой тур B
-  └── приватный тур C
-```
-
-Фильтрация достопримечательностей по стране:
-
-```text
-/api/ru/attractions/?country=Казахстан
-/api/ru/attractions/?country=Kazakhstan
-/api/ru/attractions/?country=<country_id>
-```
-
-### Ветвление квиза
-
-Ветвление квиза должно останавливаться на выбранной ветке. Вариант ответа с `next_question` ведёт только в свою ветку. Другие ветки не должны появляться после выбора конкретной ветки.
-
-## Правило по кэшу
-
-Политика кэша/ревалидации фронтенда намеренно оставлена как есть после последнего обсуждения. Не меняйте поведение кэша фронтенда без отдельного решения.
-
-Бэкенд всё равно защищает критичные действия. Например: даже если старая страница фронтенда показывает неактивный тур, бэкенд должен отклонить бронирование.
-
-## Известные эксплуатационные нюансы
-
-- `https://www.nomadsarea.com/healthz/` может попасть во фронтенд или редирект в зависимости от Nginx. Для проверки бэкенда используйте `/api/healthz/` и `/api/readyz/`.
-- `/api/not-existing-debug-check/` может быть интерпретирован как маршрут с языком. Для проверки реального 404 используйте `/api/ru/not-existing-debug-check/`.
-- `DEBUG=False` нужно проверять после деплоя:
-
-```bash
-cd /root/Nomads_Area/nomads_area
-grep -n '^DEBUG=' .env
-curl -sS -i https://www.nomadsarea.com/api/ru/not-existing-debug-check/ | head -40
-```
-
-Ожидаемо: `404 Not Found`, без Django traceback-страницы.
-
-- Не запускайте разрушительные DB-команды на production без свежей резервной копии.
-- Не запускайте массовые POST-нагрузочные тесты на production. Они создают реальные лиды, брони и уведомления.
-
-## Тесты
-
-Локальные/полные тесты бэкенда:
-
-```bash
-cd /home/iskhak/PycharmProjects/Nomads_Area
-source .venv/bin/activate
-python nomads_area/manage.py test nomads_area_app
-```
-
-Последнее ожидаемое количество - 39 тестов. Если тестовая PostgreSQL-база уже существует, Django спросит, удалить ли её; отвечайте `yes` только для локальной/тестовой базы.
-
-Проверки без тестовой базы данных:
-
-```bash
-python nomads_area/manage.py check
-python nomads_area/manage.py makemigrations --check --dry-run
-python -m compileall nomads_area/nomads_area nomads_area/nomads_area_app
-bash -n scripts/*.sh
-```
-
-## GitHub Actions
-
-CI workflow намеренно не закоммичен, потому что push workflow-файлов требует GitHub token с правом `workflow`. Владелец проекта сказал, что сделает эту часть сам.
-
-Не просите токены в чате. Если добавляете CI, используйте короткоживущий token с ограниченными правами на репозиторий и правом `workflow`, либо добавьте workflow через GitHub UI.
-
-
 ---
 
-# Нагрузочное тестирование
+## Нагрузочное тестирование
 
-Запускайте генератор нагрузки с отдельной VPS, не с сервера приложения. Тест использует только эндпоинт детальной страницы тура только для чтения и считает редиректы, ограничение частоты запросов и серверные ошибки провалом.
+Не запускайте массовый POST на production. POST создаёт реальные брони, лиды и уведомления.
 
-## Подготовка production
+Для GET-нагрузки используйте отдельную VPS, не сервер приложения.
 
-Настройте Django на общий Redis-кэш и временно поднимите только анонимный лимит чтения:
+### Подготовка
 
-```env
+Временно убедитесь, что включён общий Redis-кэш и высокий лимит для анонимных GET-запросов:
+
+```dotenv
 CACHE_URL=redis://127.0.0.1:6379/1
 CACHE_KEY_PREFIX=nomads-area
 API_CACHE_TIMEOUT=60
 DRF_ANON_THROTTLE_RATE=1000000/minute
 ```
 
-Перезапустите Gunicorn и проверьте, что повторные запросы возвращают `200`. Не меняйте `DRF_FORMS_THROTTLE_RATE`; POST-формы не входят в этот тест.
+Не меняйте `DRF_FORMS_THROTTLE_RATE`: POST-формы не входят в этот тест.
 
-## Запуск
-
-Установите k6 на VPS для генерации нагрузки, скопируйте туда директорию `loadtest`, затем запустите:
+### Запуск через k6
 
 ```bash
 TARGET_URL=https://www.nomadsarea.com/api/en/tours/54/ \
@@ -878,11 +824,24 @@ VUS_HIGH=50 \
 ./loadtest/run.sh
 ```
 
-Увеличивайте `VUS_HIGH` отдельными запусками: `10`, `25`, `50`, `100`, с паузой минимум 30 секунд между запусками. Остановитесь, если p99 выше 1.5 секунды, появились 5xx, таймаут worker-процесса, CPU держится выше 90%, растёт swap или подключения PostgreSQL приближаются к лимиту.
+Увеличивайте нагрузку отдельными запусками:
 
-JSON-отчёт сохраняется в `loadtest/results/`.
+```text
+10 → 25 → 50 → 100 VUS
+```
 
-## Мониторинг сервера
+Между запусками делайте паузу минимум 30 секунд.
+
+Остановитесь, если:
+
+- p99 выше 1.5–3 секунд;
+- появились 5xx;
+- появились worker timeout;
+- CPU стабильно выше 90%;
+- растёт swap;
+- подключения PostgreSQL приближаются к лимиту.
+
+### Мониторинг сервера
 
 ```bash
 sudo journalctl -u nomadsarea -f
@@ -901,4 +860,65 @@ ORDER BY state;
 \""
 ```
 
-После production-теста верните нормальный анонимный лимит и перезапустите Gunicorn. Общий Redis-кэш оставьте включённым.
+После теста верните нормальный анонимный лимит и перезапустите Gunicorn.
+
+---
+
+## Передача проекта разработчику
+
+Этот раздел нужен следующему разработчику, чтобы быстро понять проект и правила эксплуатации.
+
+### Репозитории
+
+Backend:
+
+```text
+GitHub: iskakdev/Nomads_Area
+Production path: /root/Nomads_Area
+Django path: /root/Nomads_Area/nomads_area
+Venv: /root/Nomads_Area/venv
+Service: nomadsarea
+Celery service: nomadsarea-celery
+```
+
+Frontend:
+
+```text
+GitHub: kubanych-js/nomads-area
+Production path: /root/nomads-area
+Process manager: PM2
+Process name: nomads-frontend
+```
+
+### Критичные правила
+
+- Не хранить секреты в репозитории.
+- Не включать `DEBUG=True` на production.
+- Перед миграциями и крупными изменениями данных делать backup.
+- Не запускать массовые POST-нагрузочные тесты на production.
+- Не менять поведение кэша frontend без отдельного решения.
+- Backend должен отклонять бронь на неактивный тур, даже если frontend показывает старую страницу.
+- Достопримечательность должна быть одной записью и связываться с несколькими турами, а не дублироваться.
+- Ветвление квиза должно оставаться в рамках выбранной ветки.
+
+### Проверка `DEBUG=False`
+
+```bash
+cd /root/Nomads_Area/nomads_area
+grep -n '^DEBUG=' .env
+curl -sS -i https://www.nomadsarea.com/api/ru/not-existing-debug-check/ | head -40
+```
+
+Ожидаемо: обычный `404 Not Found`, без Django traceback-страницы.
+
+### GitHub Actions
+
+Если добавляется или изменяется workflow в `.github/workflows/`, нужен GitHub token с правом `workflow`. Не передавайте токены в чат. Лучше добавлять workflow через GitHub UI или короткоживущий token с минимальными правами.
+
+---
+
+## Дополнительная документация
+
+- `MANAGER_GUIDE.md` — руководство менеджера по работе с админкой.
+- `docs/Architecture.docx` — архитектура backend в Word-формате.
+- `docs/backend_structure.md` — краткое описание структуры backend-приложения.
